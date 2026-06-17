@@ -58,6 +58,7 @@ public class ArticlesApiTest extends TestWithCurrentUser {
         new ArticleData(
             "123",
             slug,
+            "userid",
             title,
             description,
             body,
@@ -127,6 +128,7 @@ public class ArticlesApiTest extends TestWithCurrentUser {
         new ArticleData(
             "123",
             slug,
+            "userid",
             title,
             description,
             body,

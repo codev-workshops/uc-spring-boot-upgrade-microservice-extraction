@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="io.spring.infrastructure.mybatis.readservice.CommentReadService">
+    <sql id="profileColumns">
+        U.id userId,
+        U.username userUsername,
+        U.bio userBio,
+        U.image userImage
+    </sql>
+    <sql id="selectCommentData">
+        SELECT
+        C.id commentId,
+        C.body commentBody,
+        C.created_at commentCreatedAt,
+        C.article_id commentArticleId,
+        <include refid="profileColumns"/>
+        from comments C
+        left join users U
+        on C.user_id = U.id
+    </sql>
+
+    <select id="findById" resultMap="transfer.data.commentData">
+        <include refid="selectCommentData"/>
+        where C.id = #{id}
+    </select>
+    <select id="findByArticleId" resultMap="transfer.data.commentData">
+        <include refid="selectCommentData"/>
+        where C.article_id = #{articleId}
+    </select>
+    <select id="findByArticleIdWithCursor" resultMap="transfer.data.commentData">
+        <include refid="selectCommentData"/>
+        <where>
+        C.article_id = #{articleId}
+        <if test='page.cursor != null and page.direction.name() == "NEXT"'>
+            AND C.created_at &lt; #{page.cursor}
+        </if>
+        <if test='page.cursor != null and page.direction.name() == "PREV"'>
+            AND C.created_at > #{page.cursor}
+        </if>
+        </where>
+        <if test='page.direction.name() == "NEXT"'>
+            order by C.created_at desc
+        </if>
+        <if test='page.direction.name() == "PREV"'>
+            order by C.created_at asc
+        </if>
+        limit #{page.queryLimit}
+    </select>
+
+    <resultMap id="transfer.data.commentData" type="io.spring.application.data.CommentData">
+        <id column="commentId" property="id"/>
+        <result column="commentBody" property="body"/>
+        <result column="commentCreatedAt" property="createdAt"/>
+        <result column="commentCreatedAt" property="updatedAt"/>
+        <result column="commentArticleId" property="articleId"/>
+        <association property="profileData" javaType="io.spring.application.data.ProfileData">
+            <id column="userId" property="id"/>
+            <result column="userUsername" property="username"/>
+            <result column="userBio" property="bio"/>
+            <result column="userImage" property="image"/>
+        </association>
+    </resultMap>
+</mapper>

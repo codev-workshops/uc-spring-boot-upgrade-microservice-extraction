@@ -14,6 +14,7 @@ public class TestHelper {
     return new ArticleData(
         seed + "id",
         "title-" + seed,
+        user.getId(),
         "title " + seed,
         "desc " + seed,
         "body " + seed,
@@ -29,6 +30,7 @@ public class TestHelper {
     return new ArticleData(
         article.getId(),
         article.getSlug(),
+        user.getId(),
         article.getTitle(),
         article.getDescription(),
         article.getBody(),

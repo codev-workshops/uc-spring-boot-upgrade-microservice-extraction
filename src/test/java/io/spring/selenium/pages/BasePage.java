@@ -1,5 +1,6 @@
 package io.spring.selenium.pages;
 
+import java.time.Duration;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.PageFactory;
@@ -15,7 +16,7 @@ public abstract class BasePage {
 
   public BasePage(WebDriver driver) {
     this.driver = driver;
-    this.wait = new WebDriverWait(driver, DEFAULT_TIMEOUT_SECONDS);
+    this.wait = new WebDriverWait(driver, Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS));
     PageFactory.initElements(driver, this);
   }
 
