@@ -14,4 +14,10 @@ public class User {
   private String password;
   private String bio;
   private String image;
+
+  public static User ofId(String id) {
+    User user = new User();
+    user.id = id;
+    return user;
+  }
 }

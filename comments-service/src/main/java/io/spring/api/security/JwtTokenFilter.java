@@ -1,6 +1,7 @@
 package io.spring.api.security;
 
 import io.spring.core.service.JwtService;
+import io.spring.core.user.User;
 import io.spring.core.user.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -30,17 +31,13 @@ public class JwtTokenFilter extends OncePerRequestFilter {
         .ifPresent(
             id -> {
               if (SecurityContextHolder.getContext().getAuthentication() == null) {
-                userRepository
-                    .findById(id)
-                    .ifPresent(
-                        user -> {
-                          UsernamePasswordAuthenticationToken authenticationToken =
-                              new UsernamePasswordAuthenticationToken(
-                                  user, null, Collections.emptyList());
-                          authenticationToken.setDetails(
-                              new WebAuthenticationDetailsSource().buildDetails(request));
-                          SecurityContextHolder.getContext().setAuthentication(authenticationToken);
-                        });
+                Optional<User> userOpt = userRepository.findById(id);
+                User user = userOpt.orElseGet(() -> User.ofId(id));
+                UsernamePasswordAuthenticationToken authenticationToken =
+                    new UsernamePasswordAuthenticationToken(user, null, Collections.emptyList());
+                authenticationToken.setDetails(
+                    new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authenticationToken);
               }
             });
 

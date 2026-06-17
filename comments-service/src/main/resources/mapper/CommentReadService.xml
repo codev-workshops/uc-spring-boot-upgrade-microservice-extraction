@@ -44,6 +44,7 @@
         <if test='page.direction.name() == "PREV"'>
             order by C.created_at asc
         </if>
+        limit #{page.queryLimit}
     </select>
 
     <resultMap id="transfer.data.commentData" type="io.spring.application.data.CommentData">

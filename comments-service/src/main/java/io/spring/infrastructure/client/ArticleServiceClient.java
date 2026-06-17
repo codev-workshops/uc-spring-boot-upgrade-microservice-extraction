@@ -31,6 +31,8 @@ public class ArticleServiceClient {
       return dto;
     } catch (HttpClientErrorException.NotFound e) {
       throw new ResourceNotFoundException();
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to fetch article by slug: " + slug, e);
     }
   }
 }
