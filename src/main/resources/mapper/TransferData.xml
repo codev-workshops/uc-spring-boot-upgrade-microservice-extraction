@@ -18,6 +18,7 @@
     <resultMap id="articleData" type="io.spring.application.data.ArticleData">
         <id column="articleId" property="id"/>
         <result column="articleSlug" property="slug"/>
+        <result column="userId" property="userId"/>
         <result column="articleTitle" property="title"/>
         <result column="articleDescription" property="description"/>
         <result column="articleBody" property="body"/>

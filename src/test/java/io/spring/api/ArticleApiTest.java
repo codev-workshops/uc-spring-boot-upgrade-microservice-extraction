@@ -136,6 +136,7 @@ public class ArticleApiTest extends TestWithCurrentUser {
         new ArticleData(
             article.getId(),
             article.getSlug(),
+            anotherUser.getId(),
             article.getTitle(),
             article.getDescription(),
             article.getBody(),

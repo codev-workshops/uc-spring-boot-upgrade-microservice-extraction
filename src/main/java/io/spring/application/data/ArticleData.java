@@ -14,6 +14,7 @@ import org.joda.time.DateTime;
 public class ArticleData implements io.spring.application.Node {
   private String id;
   private String slug;
+  private String userId;
   private String title;
   private String description;
   private String body;
