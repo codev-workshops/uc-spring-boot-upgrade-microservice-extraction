@@ -7,4 +7,10 @@
     <select id="findById" resultType="io.spring.application.data.UserData">
         select * from users where id = #{id}
     </select>
+    <select id="findByIds" resultType="io.spring.application.data.UserData">
+        select * from users where id in
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </select>
 </mapper>

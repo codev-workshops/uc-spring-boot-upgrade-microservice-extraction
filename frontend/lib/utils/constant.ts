@@ -1,5 +1,8 @@
 export const SERVER_BASE_URL = `http://localhost:8080`;
 
+export const COMMENTS_SERVICE_BASE_URL =
+  process.env.NEXT_PUBLIC_COMMENTS_SERVICE_BASE_URL || `http://localhost:8081`;
+
 export const APP_NAME = `conduit`;
 
 export const ARTICLE_QUERY_MAP = {

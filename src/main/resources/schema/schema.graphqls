@@ -33,9 +33,6 @@ type Mutation {
     unfavoriteArticle(slug: String!): ArticlePayload
     deleteArticle(slug: String!): DeletionStatus
 
-    ### Comment
-    addComment(slug: String!, body: String!): CommentPayload
-    deleteComment(slug: String!, id: ID!): DeletionStatus
 }
 
 schema {
@@ -47,7 +44,6 @@ schema {
 type Article {
     author: Profile!
     body: String!
-    comments(first: Int, after: String, last: Int, before: String): CommentsConnection
     createdAt: String!
     description: String!
     favorited: Boolean!
@@ -65,26 +61,6 @@ type ArticleEdge {
 
 type ArticlesConnection {
     edges: [ArticleEdge]
-    pageInfo: PageInfo!
-}
-
-### Comments
-type Comment {
-    id: ID!
-    author: Profile!
-    article: Article!
-    body: String!
-    createdAt: String!
-    updatedAt: String!
-}
-
-type CommentEdge {
-    cursor: String!
-    node: Comment
-}
-
-type CommentsConnection {
-    edges: [CommentEdge]
     pageInfo: PageInfo!
 }
 
@@ -149,10 +125,6 @@ type ArticlePayload {
     article: Article
 }
 
-type CommentPayload {
-    comment: Comment
-}
-
 input CreateUserInput {
     email: String!
     username: String!
@@ -174,4 +146,3 @@ type UserPayload {
 type ProfilePayload {
     profile: Profile
 }
-

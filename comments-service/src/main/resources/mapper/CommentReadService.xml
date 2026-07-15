@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="io.spring.infrastructure.mybatis.readservice.CommentReadService">
+    <resultMap id="profileData" type="io.spring.application.data.ProfileData">
+        <id column="commentUserId" property="id"/>
+    </resultMap>
+    <resultMap id="commentData" type="io.spring.application.data.CommentData">
+        <id column="commentId" property="id"/>
+        <result column="commentBody" property="body"/>
+        <result column="commentCreatedAt" property="createdAt"/>
+        <result column="commentUpdatedAt" property="updatedAt"/>
+        <result column="commentArticleId" property="articleId"/>
+        <association property="profileData" resultMap="profileData"/>
+    </resultMap>
+    <sql id="selectCommentData">
+        SELECT
+        C.id commentId,
+        C.body commentBody,
+        C.created_at commentCreatedAt,
+        C.updated_at commentUpdatedAt,
+        C.article_id commentArticleId,
+        C.user_id commentUserId
+        from comments C
+    </sql>
+    <select id="findById" resultMap="commentData">
+        <include refid="selectCommentData"/>
+        where C.id = #{id}
+    </select>
+    <select id="findByArticleId" resultMap="commentData">
+        <include refid="selectCommentData"/>
+        where C.article_id = #{articleId}
+        order by C.created_at desc
+    </select>
+    <select id="findByArticleIdWithCursor" resultMap="commentData">
+        <include refid="selectCommentData"/>
+        <where>
+        C.article_id = #{articleId}
+        <if test='page.cursor != null and page.direction.name() == "NEXT"'>
+            AND C.created_at &lt; #{page.cursor}
+        </if>
+        <if test='page.cursor != null and page.direction.name() == "PREV"'>
+            AND C.created_at > #{page.cursor}
+        </if>
+        </where>
+        <if test='page.direction.name() == "NEXT"'>
+            order by C.created_at desc
+        </if>
+        <if test='page.direction.name() == "PREV"'>
+            order by C.created_at asc
+        </if>
+        limit #{page.queryLimit}
+    </select>
+</mapper>

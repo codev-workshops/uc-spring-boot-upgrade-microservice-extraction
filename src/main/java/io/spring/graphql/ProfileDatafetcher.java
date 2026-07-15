@@ -7,15 +7,12 @@ import graphql.schema.DataFetchingEnvironment;
 import io.spring.api.exception.ResourceNotFoundException;
 import io.spring.application.ProfileQueryService;
 import io.spring.application.data.ArticleData;
-import io.spring.application.data.CommentData;
 import io.spring.application.data.ProfileData;
 import io.spring.core.user.User;
 import io.spring.graphql.DgsConstants.ARTICLE;
-import io.spring.graphql.DgsConstants.COMMENT;
 import io.spring.graphql.DgsConstants.QUERY;
 import io.spring.graphql.DgsConstants.USER;
 import io.spring.graphql.types.Article;
-import io.spring.graphql.types.Comment;
 import io.spring.graphql.types.Profile;
 import io.spring.graphql.types.ProfilePayload;
 import java.util.Map;
@@ -39,13 +36,6 @@ public class ProfileDatafetcher {
     Map<String, ArticleData> map = dataFetchingEnvironment.getLocalContext();
     Article article = dataFetchingEnvironment.getSource();
     return queryProfile(map.get(article.getSlug()).getProfileData().getUsername());
-  }
-
-  @DgsData(parentType = COMMENT.TYPE_NAME, field = COMMENT.Author)
-  public Profile getCommentAuthor(DataFetchingEnvironment dataFetchingEnvironment) {
-    Comment comment = dataFetchingEnvironment.getSource();
-    Map<String, CommentData> map = dataFetchingEnvironment.getLocalContext();
-    return queryProfile(map.get(comment.getId()).getProfileData().getUsername());
   }
 
   @DgsData(parentType = DgsConstants.QUERY_TYPE, field = QUERY.Profile)

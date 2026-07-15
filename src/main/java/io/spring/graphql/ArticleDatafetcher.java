@@ -16,11 +16,9 @@ import io.spring.application.CursorPager;
 import io.spring.application.CursorPager.Direction;
 import io.spring.application.DateTimeCursor;
 import io.spring.application.data.ArticleData;
-import io.spring.application.data.CommentData;
 import io.spring.core.user.User;
 import io.spring.core.user.UserRepository;
 import io.spring.graphql.DgsConstants.ARTICLEPAYLOAD;
-import io.spring.graphql.DgsConstants.COMMENT;
 import io.spring.graphql.DgsConstants.PROFILE;
 import io.spring.graphql.DgsConstants.QUERY;
 import io.spring.graphql.types.Article;
@@ -305,27 +303,6 @@ public class ArticleDatafetcher {
     ArticleData articleData =
         articleQueryService
             .findById(article.getId(), current)
-            .orElseThrow(ResourceNotFoundException::new);
-    Article articleResult = buildArticleResult(articleData);
-    return DataFetcherResult.<Article>newResult()
-        .localContext(
-            new HashMap<String, Object>() {
-              {
-                put(articleData.getSlug(), articleData);
-              }
-            })
-        .data(articleResult)
-        .build();
-  }
-
-  @DgsData(parentType = COMMENT.TYPE_NAME, field = COMMENT.Article)
-  public DataFetcherResult<Article> getCommentArticle(
-      DataFetchingEnvironment dataFetchingEnvironment) {
-    CommentData comment = dataFetchingEnvironment.getLocalContext();
-    User current = SecurityUtil.getCurrentUser().orElse(null);
-    ArticleData articleData =
-        articleQueryService
-            .findById(comment.getArticleId(), current)
             .orElseThrow(ResourceNotFoundException::new);
     Article articleResult = buildArticleResult(articleData);
     return DataFetcherResult.<Article>newResult()

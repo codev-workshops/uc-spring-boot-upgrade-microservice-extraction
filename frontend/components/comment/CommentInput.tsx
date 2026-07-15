@@ -6,7 +6,7 @@ import useSWR, { trigger } from "swr";
 import CustomImage from "../common/CustomImage";
 import CustomLink from "../common/CustomLink";
 import checkLogin from "../../lib/utils/checkLogin";
-import { SERVER_BASE_URL } from "../../lib/utils/constant";
+import { COMMENTS_SERVICE_BASE_URL } from "../../lib/utils/constant";
 import storage from "../../lib/utils/storage";
 
 const CommentInput = () => {
@@ -28,7 +28,9 @@ const CommentInput = () => {
     e.preventDefault();
     setLoading(true);
     await axios.post(
-      `${SERVER_BASE_URL}/articles/${encodeURIComponent(String(pid))}/comments`,
+      `${COMMENTS_SERVICE_BASE_URL}/articles/${encodeURIComponent(
+        String(pid)
+      )}/comments`,
       JSON.stringify({
         comment: {
           body: content,
@@ -43,7 +45,7 @@ const CommentInput = () => {
     );
     setLoading(false);
     setContent("");
-    trigger(`${SERVER_BASE_URL}/articles/${pid}/comments`);
+    trigger(`${COMMENTS_SERVICE_BASE_URL}/articles/${pid}/comments`);
   };
 
   if (!isLoggedIn) {
