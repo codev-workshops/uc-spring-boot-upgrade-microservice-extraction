@@ -80,4 +80,23 @@ JWT_SECRET=<shared-secret> ./gradlew build -x jacocoTestCoverageVerification
 JWT_SECRET=<shared-secret> ./gradlew spotlessCheck
 ```
 
-Runtime and end-to-end validation results are recorded in the pull request.
+## Validation results
+
+Validated on Java 11 with clean, separate `dev.db` and `comments-service/comments.db` files:
+
+| Gate | Result |
+| --- | --- |
+| Monolith `./gradlew build -x jacocoTestCoverageVerification` | PASS |
+| Monolith `./gradlew spotlessCheck` | PASS |
+| Comments service `./gradlew build -x jacocoTestCoverageVerification` | PASS |
+| Comments service `./gradlew spotlessCheck` | PASS |
+
+Runtime checks passed for:
+
+- login in the monolith and local verification of its HS512 token in the comments service
+- create, list, unauthorized delete, article-author delete, and `204` success
+- correct viewer-scoped `following` values from one distinct-author batch call
+- invalid and expired token rejection
+- placeholder profiles on a warmed read while the monolith is unavailable
+- clear `503` responses for create/delete when article lookup is unavailable
+- the retained monolith regression suite

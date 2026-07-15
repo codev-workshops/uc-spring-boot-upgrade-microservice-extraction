@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import io.restassured.module.mockmvc.RestAssuredMockMvc;
 import io.spring.JacksonCustomizations;
 import io.spring.TestHelper;
+import io.spring.api.exception.ArticleServiceException;
 import io.spring.api.security.WebSecurityConfig;
 import io.spring.application.CommentQueryService;
 import io.spring.application.data.CommentData;
@@ -124,5 +125,23 @@ public class CommentsApiTest extends TestWithCurrentUser {
         .delete("/articles/article-slug/comments/{id}", comment.getId())
         .then()
         .statusCode(403);
+  }
+
+  @Test
+  public void shouldReturnClearErrorWhenArticleLookupFails() {
+    when(articleServiceClient.findBySlug("unavailable"))
+        .thenThrow(new ArticleServiceException("Unable to resolve article 'unavailable'", null));
+    Map<String, Object> param = new HashMap<>();
+    param.put("comment", Collections.singletonMap("body", "comment content"));
+
+    given()
+        .contentType("application/json")
+        .header("Authorization", "Token " + token)
+        .body(param)
+        .when()
+        .post("/articles/unavailable/comments")
+        .then()
+        .statusCode(503)
+        .body("message", equalTo("Unable to resolve article 'unavailable'"));
   }
 }
