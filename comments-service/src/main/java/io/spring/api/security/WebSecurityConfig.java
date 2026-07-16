@@ -3,6 +3,10 @@ package io.spring.api.security;
 import static java.util.Arrays.asList;
 
 import io.spring.core.service.JwtService;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -21,9 +25,14 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableWebSecurity
 public class WebSecurityConfig {
   private final JwtService jwtService;
+  private final List<String> allowedOrigins;
 
-  public WebSecurityConfig(JwtService jwtService) {
+  public WebSecurityConfig(
+      JwtService jwtService,
+      @Value("${cors.allowed-origins:http://localhost:3000}") String allowedOrigins) {
     this.jwtService = jwtService;
+    this.allowedOrigins =
+        Arrays.stream(allowedOrigins.split(",")).map(String::trim).collect(Collectors.toList());
   }
 
   @Bean
@@ -59,7 +68,7 @@ public class WebSecurityConfig {
   @Bean
   public CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration configuration = new CorsConfiguration();
-    configuration.setAllowedOrigins(asList("*"));
+    configuration.setAllowedOrigins(allowedOrigins);
     configuration.setAllowedMethods(asList("HEAD", "GET", "POST", "PUT", "DELETE", "PATCH"));
     configuration.setAllowCredentials(false);
     configuration.setAllowedHeaders(asList("Authorization", "Cache-Control", "Content-Type"));

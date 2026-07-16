@@ -144,4 +144,27 @@ public class CommentsApiTest extends TestWithCurrentUser {
         .statusCode(503)
         .body("message", equalTo("Unable to resolve article 'unavailable'"));
   }
+
+  @Test
+  public void shouldAllowConfiguredCorsOrigin() {
+    given()
+        .header("Origin", "http://localhost:3000")
+        .header("Access-Control-Request-Method", "POST")
+        .when()
+        .options("/articles/article-slug/comments")
+        .then()
+        .statusCode(200)
+        .header("Access-Control-Allow-Origin", equalTo("http://localhost:3000"));
+  }
+
+  @Test
+  public void shouldRejectUnknownCorsOrigin() {
+    given()
+        .header("Origin", "https://untrusted.example")
+        .header("Access-Control-Request-Method", "POST")
+        .when()
+        .options("/articles/article-slug/comments")
+        .then()
+        .statusCode(403);
+  }
 }

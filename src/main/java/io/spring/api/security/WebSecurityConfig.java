@@ -22,7 +22,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @Configuration
 @EnableWebSecurity
 public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
-  @Value("${jwt.secret}")
+  @Value("${internal.service-key}")
   private String internalServiceKey;
 
   @Bean

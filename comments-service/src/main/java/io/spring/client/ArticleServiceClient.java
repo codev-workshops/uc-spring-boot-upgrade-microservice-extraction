@@ -25,7 +25,7 @@ public class ArticleServiceClient {
   public ArticleServiceClient(
       RestTemplate restTemplate,
       @Value("${monolith.base-url}") String monolithBaseUrl,
-      @Value("${jwt.secret}") String internalServiceKey) {
+      @Value("${internal.service-key}") String internalServiceKey) {
     this.restTemplate = restTemplate;
     this.monolithBaseUrl = monolithBaseUrl;
     this.internalServiceKey = internalServiceKey;

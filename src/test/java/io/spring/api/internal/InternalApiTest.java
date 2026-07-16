@@ -30,11 +30,12 @@ import org.springframework.test.web.servlet.MockMvc;
 @WebMvcTest({InternalProfileApi.class, InternalArticleApi.class})
 @Import(WebSecurityConfig.class)
 @TestPropertySource(
-    properties =
-        "jwt.secret=test-secret-test-secret-test-secret-test-secret-test-secret-test-secret-123456789")
+    properties = {
+      "jwt.secret=test-secret-test-secret-test-secret-test-secret-test-secret-test-secret-123456789",
+      "internal.service-key=test-internal-service-key"
+    })
 public class InternalApiTest {
-  private static final String INTERNAL_KEY =
-      "test-secret-test-secret-test-secret-test-secret-test-secret-test-secret-123456789";
+  private static final String INTERNAL_KEY = "test-internal-service-key";
 
   @MockBean private UserReadService userReadService;
   @MockBean private UserRelationshipQueryService userRelationshipQueryService;
@@ -96,5 +97,15 @@ public class InternalApiTest {
   @Test
   public void shouldRejectMissingInternalServiceKey() {
     given().when().post("/internal/profiles/batch").then().statusCode(401);
+  }
+
+  @Test
+  public void shouldRejectIncorrectInternalServiceKey() {
+    given()
+        .header("X-Internal-Service-Key", "test-internal-service-kez")
+        .when()
+        .post("/internal/profiles/batch")
+        .then()
+        .statusCode(401);
   }
 }

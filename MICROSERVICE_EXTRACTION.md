@@ -8,9 +8,11 @@ also accepts:
 
 - `MONOLITH_BASE_URL` (default `http://localhost:8080`)
 - `COMMENTS_SERVICE_PORT` (default `8081`)
+- `CORS_ALLOWED_ORIGINS` (default `http://localhost:3000`, comma-separated)
 
-Internal callbacks are authenticated with `X-Internal-Service-Key`, whose value is the shared
-`JWT_SECRET`.
+Both applications must also receive the same dedicated `INTERNAL_SERVICE_KEY`. Internal callbacks
+are authenticated with `X-Internal-Service-Key` using this value; the JWT signing secret is never
+sent between services.
 
 ### Batch profiles
 
