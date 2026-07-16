@@ -3,7 +3,7 @@
 The upgrade is split into independently testable stages so dependency, framework, and Java
 runtime failures remain attributable to one change set.
 
-## Baseline
+## Starting baseline
 
 - Spring Boot 2.6.3
 - Java source/target 11
@@ -95,3 +95,25 @@ JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 ./gradlew test \
 JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 ./gradlew spotlessCheck --no-daemon
 JWT_SECRET=<shared-secret> JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 ./gradlew bootRun
 ```
+
+Executed results:
+
+| Gate | Runtime | Result |
+| --- | --- | --- |
+| Starting baseline tests | Java 11 | PASS, 12 tests |
+| Stage 1 dependency tests + Spotless | Java 11 | PASS, 12 tests |
+| Stage 2 framework tests + Spotless | Java 11 | PASS, 12 tests |
+| Stage 3 language tests + Spotless | Java 17 | PASS, 12 tests |
+| Final clean build | Java 17 | PASS |
+| Final forced full test run | Java 17 | PASS, 12 tests |
+| Final Spotless check | Java 17 | PASS |
+| Packaged application smoke start | Java 17 | PASS on port 8081 |
+
+Spring Boot 2.7.18's dependency management initially selected REST Assured's older
+`spring-commons` module. Setting the BOM's `rest-assured.version` property aligned every REST
+Assured module at 5.4.0 and restored the API test binary compatibility.
+
+The smoke run applied both Flyway migrations and started Tomcat. With the monolith intentionally
+unavailable, the public list route returned its documented domain-specific `503`, while an
+unauthenticated write returned `401`; this proves both request handling and the security chain
+initialized successfully.
