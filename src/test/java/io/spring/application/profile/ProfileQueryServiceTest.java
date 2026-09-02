@@ -1,11 +1,11 @@
 package io.spring.application.profile;
 
 import io.spring.application.ProfileQueryService;
-import io.spring.application.data.ProfileData;
 import io.spring.core.user.User;
 import io.spring.core.user.UserRepository;
 import io.spring.infrastructure.DbTestBase;
 import io.spring.infrastructure.repository.MyBatisUserRepository;
+import io.spring.shared.data.ProfileData;
 import java.util.Optional;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

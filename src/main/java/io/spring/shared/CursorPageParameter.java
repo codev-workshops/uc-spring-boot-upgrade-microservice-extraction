@@ -1,6 +1,6 @@
-package io.spring.application;
+package io.spring.shared;
 
-import io.spring.application.CursorPager.Direction;
+import io.spring.shared.CursorPager.Direction;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 

@@ -1,9 +1,11 @@
 package io.spring.application;
 
-import io.spring.application.data.CommentData;
 import io.spring.core.user.User;
 import io.spring.infrastructure.mybatis.readservice.CommentReadService;
 import io.spring.infrastructure.mybatis.readservice.UserRelationshipQueryService;
+import io.spring.shared.CursorPageParameter;
+import io.spring.shared.CursorPager;
+import io.spring.shared.data.CommentData;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;

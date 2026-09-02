@@ -1,4 +1,4 @@
-package io.spring.application;
+package io.spring.shared;
 
 public abstract class PageCursor<T> {
   private T data;

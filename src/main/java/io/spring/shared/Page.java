@@ -1,4 +1,4 @@
-package io.spring.application;
+package io.spring.shared;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;

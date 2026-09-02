@@ -2,13 +2,16 @@ package io.spring.application;
 
 import static java.util.stream.Collectors.toList;
 
-import io.spring.application.data.ArticleData;
-import io.spring.application.data.ArticleDataList;
-import io.spring.application.data.ArticleFavoriteCount;
 import io.spring.core.user.User;
 import io.spring.infrastructure.mybatis.readservice.ArticleFavoritesReadService;
 import io.spring.infrastructure.mybatis.readservice.ArticleReadService;
 import io.spring.infrastructure.mybatis.readservice.UserRelationshipQueryService;
+import io.spring.shared.CursorPageParameter;
+import io.spring.shared.CursorPager;
+import io.spring.shared.Page;
+import io.spring.shared.data.ArticleData;
+import io.spring.shared.data.ArticleDataList;
+import io.spring.shared.data.ArticleFavoriteCount;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;

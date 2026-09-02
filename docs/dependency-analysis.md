@@ -6,6 +6,10 @@ package `io.spring` itself). Sub-packages (`api.exception`, `api.security`, `app
 `graphql.types`, `infrastructure.mybatis.readservice`, ...) are collapsed into their top-level
 module, and edges within a module are ignored.
 
+Sections 1–4 describe the structure as analysed. Recommendation **P1 has since been implemented**
+(see [Section 6](#6-status-p1-implemented)), which removed the single package cycle; the current
+edge set is in that section.
+
 ## 1. Package dependency graph
 
 ```mermaid
@@ -117,7 +121,7 @@ strictly one-directional edges: `graphql -> api -> application/core`. Neither `a
 
 ## 5. Prioritized refactoring recommendations
 
-### P1 — Break the `application <-> infrastructure` cycle
+### P1 — Break the `application <-> infrastructure` cycle — DONE
 
 Relocate the shared read-model DTOs (`application.data.*`) and the pagination helpers
 (`Page`, `CursorPageParameter` and the cursor types they rely on) into a neutral package that both
@@ -125,6 +129,8 @@ Relocate the shared read-model DTOs (`application.data.*`) and the pagination he
 `infrastructure` no longer imports `application` at all and the only remaining edge is
 `application -> infrastructure`. This is the only true cycle in the codebase and the cheapest fix:
 it is a package move plus import updates, with no behavioural change.
+
+Implemented — see [Section 6](#6-status-p1-implemented).
 
 ### P2 — Decouple `graphql` from `api.exception`
 
@@ -138,3 +144,52 @@ a neutral shared package (e.g. `io.spring.shared.exception`), leaving the Spring
 Reduce the cascade risk of `core`'s fan-in of 4: keep entrypoints (`api`, `graphql`) off domain
 entities and repositories, letting them talk only to `application` services and read models, so
 domain changes propagate through `application` instead of into every layer simultaneously.
+
+## 6. Status: P1 implemented
+
+The shared read-model DTOs and pagination helpers were moved out of `application` into the new
+neutral package `io.spring.shared`:
+
+| Before | After |
+| --- | --- |
+| `io.spring.application.data.{ArticleData, ArticleDataList, ArticleFavoriteCount, CommentData, ProfileData, UserData, UserWithToken}` | `io.spring.shared.data.*` |
+| `io.spring.application.{Page, CursorPageParameter, CursorPager, DateTimeCursor, Node, PageCursor}` | `io.spring.shared.*` |
+
+`CursorPager`, `DateTimeCursor`, `Node` and `PageCursor` moved along with `Page` and
+`CursorPageParameter` because the moved types reference them; leaving them in `application` would
+have produced a `shared -> application` edge and merely relocated the cycle. The MyBatis XML
+mappers (`mapper/TransferData.xml`, `mapper/UserReadService.xml`) were updated to the new
+fully-qualified `resultMap`/`resultType` names.
+
+Updated edge set:
+
+```mermaid
+graph TD
+    graphql --> api
+    graphql --> application
+    graphql --> core
+    graphql --> shared
+    api --> application
+    api --> core
+    api --> shared
+    application --> infrastructure
+    application --> core
+    application --> shared
+    infrastructure --> core
+    infrastructure --> shared
+    core --> util["io.spring.Util (root)"]
+```
+
+| Package | Fan-in | Fan-out | Depends on |
+| --- | --- | --- | --- |
+| `shared` | 4 (`api`, `graphql`, `application`, `infrastructure`) | 0 | — |
+| `core` | 4 (`api`, `graphql`, `application`, `infrastructure`) | 1 | `io.spring` root (`Util`) |
+| `application` | 2 (`api`, `graphql`) | 3 | `infrastructure`, `core`, `shared` |
+| `api` | 1 (`graphql`) | 3 | `application`, `core`, `shared` |
+| `infrastructure` | 1 (`application`) | 2 | `core`, `shared` |
+| `graphql` | 0 | 4 | `api`, `application`, `core`, `shared` |
+
+The graph is now acyclic: `infrastructure` contains no `import io.spring.application` statements,
+so the only remaining edge between the two is `application -> infrastructure`.
+
+P2 and P3 remain open recommendations and are intentionally not implemented here.
