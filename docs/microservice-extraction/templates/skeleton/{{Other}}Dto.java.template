@@ -1,0 +1,16 @@
+package io.spring.{{domain}}.application.dto;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonRootName;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+/** This service's own projection of the {{Other}} payload returned by the monolith. */
+@Getter
+@NoArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
+@JsonRootName("{{other}}")
+public class {{Other}}Dto {
+  private String id;
+  private String slug;
+}
