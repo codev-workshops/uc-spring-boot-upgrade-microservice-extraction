@@ -1,13 +1,14 @@
+// comment-service — standalone Gradle build. Versions mirror the monolith's build.gradle.
 plugins {
     id 'org.springframework.boot' version '2.6.3'
     id 'io.spring.dependency-management' version '1.0.11.RELEASE'
     id 'java'
-    id "com.netflix.dgs.codegen" version "5.0.6"
     id "com.diffplug.spotless" version "6.2.1"
     id 'jacoco'
     id 'org.springframework.cloud.contract' version '3.1.1'
 }
 
+group = 'io.spring.comment'
 version = '0.0.1-SNAPSHOT'
 sourceCompatibility = '11'
 targetCompatibility = '11'
@@ -16,9 +17,7 @@ spotless {
     java {
         target project.fileTree(project.rootDir) {
             include '**/*.java'
-            exclude 'build/generated/**/*.*', 'build/generated-examples/**/*.*', 'build/generated-test-sources/**/*.*'
-            // independent Gradle projects with their own Spotless config
-            exclude 'favorite-service/**', 'comment-service/**', 'tools/**'
+            exclude 'build/**/*.*'
         }
         googleJavaFormat()
     }
@@ -58,13 +57,12 @@ dependencyManagement {
     }
 }
 
-// Consumer-driven contract scaffolding for the microservice extraction. Contracts live in
-// src/test/resources/contracts and are verified against the monolith with MockMvc, so no service
-// needs to be running.
+// Provider-side verification of the internal comment API. Contracts live in
+// src/test/resources/contracts and are verified with standalone MockMvc (no DB, no server).
 contracts {
     testFramework = 'JUNIT5'
     testMode = 'MOCKMVC'
-    baseClassForTests = 'io.spring.contract.FavoriteContractBase'
+    baseClassForTests = 'io.spring.comment.contract.CommentInternalApiContractBase'
     contractsDslDir = file("${project.projectDir}/src/test/resources/contracts")
 }
 
@@ -77,10 +75,9 @@ configurations {
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
-    implementation 'org.springframework.boot:spring-boot-starter-hateoas'
     implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:2.2.2'
-    implementation 'com.netflix.graphql.dgs:graphql-dgs-spring-boot-starter:4.9.21'
     implementation 'org.flywaydb:flyway-core'
     implementation 'io.jsonwebtoken:jjwt-api:0.11.2'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.2',
@@ -100,69 +97,28 @@ dependencies {
     testImplementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter-test:2.2.2'
     testImplementation 'org.mockito:mockito-inline:4.0.0'
     testImplementation 'org.springframework.cloud:spring-cloud-starter-contract-verifier'
-    
-    // Selenium E2E testing
-    testImplementation 'org.seleniumhq.selenium:selenium-java:4.15.0'
-    testImplementation 'io.github.bonigarcia:webdrivermanager:5.6.2'
-    testImplementation 'org.testng:testng:7.8.0'
-    testImplementation 'com.aventstack:extentreports:5.1.1'
-    testImplementation 'org.apache.httpcomponents.client5:httpclient5:5.2.1'
 }
 
 tasks.named('test') {
-	useJUnitPlatform()
-	// Exclude Selenium tests from JUnit test task
-	exclude 'io/spring/selenium/**'
-	// -Dharness.record=true makes the parallel-run harness print envelopes instead of asserting
-	if (System.getProperty('harness.record') != null) {
-		systemProperty 'harness.record', System.getProperty('harness.record')
-	}
-	finalizedBy jacocoTestReport
+    useJUnitPlatform()
+    finalizedBy jacocoTestReport
 }
 
-// Spring Cloud Contract generates its verification tests into the contractTest source set
 tasks.named('contractTest') {
-	useJUnitPlatform()
-	testLogging {
-		events "passed", "failed"
-	}
-}
-
-// Separate task for Selenium E2E tests using TestNG
-tasks.register('seleniumTest', Test) {
-	description = 'Run Selenium E2E tests'
-	group = 'verification'
-	
-	useTestNG {
-		suites 'src/test/resources/selenium/testng-smoke.xml'
-	}
-	
-	// Only include Selenium tests
-	include 'io/spring/selenium/**'
-	
-	testLogging {
-		events "passed", "skipped", "failed"
-		showStandardStreams = true
-	}
-	
-	// Don't fail the build on test failures (for CI reporting)
-	ignoreFailures = false
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "failed"
+    }
 }
 
 tasks.named('clean') {
     doFirst {
-        delete './dev.db'
+        delete './comment.db'
     }
 }
 
-tasks.named('generateJava') {
-    schemaPaths = ["${projectDir}/src/main/resources/schema"] // List of directories containing schema files
-    packageName = 'io.spring.graphql' // The package name to use to generate sources
-}
-
-// Clean database before running to avoid Flyway migration conflicts
 tasks.named('bootRun') {
     doFirst {
-        delete './dev.db'
+        delete './comment.db'
     }
 }
