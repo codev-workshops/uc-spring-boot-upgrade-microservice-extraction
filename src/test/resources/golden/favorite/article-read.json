@@ -1,0 +1,21 @@
+{
+  "article" : {
+    "author" : {
+      "bio" : "",
+      "following" : false,
+      "image" : "",
+      "username" : "author"
+    },
+    "body" : "body",
+    "createdAt" : "<volatile>",
+    "cursor" : "<volatile>",
+    "description" : "desc",
+    "favorited" : true,
+    "favoritesCount" : 1,
+    "id" : "<uuid>",
+    "slug" : "parallel-run",
+    "tagList" : [ "java" ],
+    "title" : "parallel run",
+    "updatedAt" : "<volatile>"
+  }
+}
