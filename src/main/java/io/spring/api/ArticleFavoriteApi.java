@@ -2,12 +2,12 @@ package io.spring.api;
 
 import io.spring.api.exception.ResourceNotFoundException;
 import io.spring.application.ArticleQueryService;
-import io.spring.application.data.ArticleData;
 import io.spring.core.article.Article;
 import io.spring.core.article.ArticleRepository;
 import io.spring.core.favorite.ArticleFavorite;
 import io.spring.core.favorite.ArticleFavoriteRepository;
 import io.spring.core.user.User;
+import io.spring.shared.data.ArticleData;
 import java.util.HashMap;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;

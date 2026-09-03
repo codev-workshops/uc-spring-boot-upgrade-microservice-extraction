@@ -1,10 +1,10 @@
 package io.spring.application;
 
-import io.spring.application.data.ProfileData;
-import io.spring.application.data.UserData;
 import io.spring.core.user.User;
 import io.spring.infrastructure.mybatis.readservice.UserReadService;
 import io.spring.infrastructure.mybatis.readservice.UserRelationshipQueryService;
+import io.spring.shared.data.ProfileData;
+import io.spring.shared.data.UserData;
 import java.util.Optional;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;

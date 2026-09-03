@@ -1,7 +1,6 @@
 package io.spring.application.comment;
 
 import io.spring.application.CommentQueryService;
-import io.spring.application.data.CommentData;
 import io.spring.core.article.Article;
 import io.spring.core.article.ArticleRepository;
 import io.spring.core.comment.Comment;
@@ -13,6 +12,7 @@ import io.spring.infrastructure.DbTestBase;
 import io.spring.infrastructure.repository.MyBatisArticleRepository;
 import io.spring.infrastructure.repository.MyBatisCommentRepository;
 import io.spring.infrastructure.repository.MyBatisUserRepository;
+import io.spring.shared.data.CommentData;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;

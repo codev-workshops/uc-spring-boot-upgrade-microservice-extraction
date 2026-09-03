@@ -1,4 +1,4 @@
-package io.spring.application;
+package io.spring.shared;
 
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;

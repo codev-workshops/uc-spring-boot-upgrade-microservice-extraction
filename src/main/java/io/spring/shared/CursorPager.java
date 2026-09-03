@@ -1,4 +1,4 @@
-package io.spring.application;
+package io.spring.shared;
 
 import java.util.List;
 import lombok.Getter;

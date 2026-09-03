@@ -1,9 +1,9 @@
-package io.spring.application.data;
+package io.spring.shared.data;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.spring.application.DateTimeCursor;
-import io.spring.application.Node;
+import io.spring.shared.DateTimeCursor;
+import io.spring.shared.Node;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

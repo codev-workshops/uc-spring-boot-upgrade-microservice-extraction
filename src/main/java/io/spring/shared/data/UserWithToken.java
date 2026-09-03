@@ -1,4 +1,4 @@
-package io.spring.application.data;
+package io.spring.shared.data;
 
 import lombok.Getter;
 

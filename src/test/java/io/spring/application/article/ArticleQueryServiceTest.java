@@ -1,13 +1,6 @@
 package io.spring.application.article;
 
 import io.spring.application.ArticleQueryService;
-import io.spring.application.CursorPageParameter;
-import io.spring.application.CursorPager;
-import io.spring.application.CursorPager.Direction;
-import io.spring.application.DateTimeCursor;
-import io.spring.application.Page;
-import io.spring.application.data.ArticleData;
-import io.spring.application.data.ArticleDataList;
 import io.spring.core.article.Article;
 import io.spring.core.article.ArticleRepository;
 import io.spring.core.favorite.ArticleFavorite;
@@ -19,6 +12,13 @@ import io.spring.infrastructure.DbTestBase;
 import io.spring.infrastructure.repository.MyBatisArticleFavoriteRepository;
 import io.spring.infrastructure.repository.MyBatisArticleRepository;
 import io.spring.infrastructure.repository.MyBatisUserRepository;
+import io.spring.shared.CursorPageParameter;
+import io.spring.shared.CursorPager;
+import io.spring.shared.CursorPager.Direction;
+import io.spring.shared.DateTimeCursor;
+import io.spring.shared.Page;
+import io.spring.shared.data.ArticleData;
+import io.spring.shared.data.ArticleDataList;
 import java.util.Arrays;
 import java.util.Optional;
 import org.joda.time.DateTime;
