@@ -18,7 +18,7 @@ spotless {
             include '**/*.java'
             exclude 'build/generated/**/*.*', 'build/generated-examples/**/*.*', 'build/generated-test-sources/**/*.*'
             // independent Gradle projects with their own Spotless config
-            exclude 'favorite-service/**', 'comment-service/**', 'article-service/**', 'tools/**'
+            exclude 'favorite-service/**', 'comment-service/**', 'article-service/**', 'user-service/**', 'tools/**'
         }
         googleJavaFormat()
     }
