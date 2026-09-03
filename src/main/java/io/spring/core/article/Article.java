@@ -48,6 +48,28 @@ public class Article {
     this.updatedAt = createdAt;
   }
 
+  /** Rehydrates a persisted article (row already has id, slug, timestamps and tags). */
+  public Article(
+      String id,
+      String userId,
+      String slug,
+      String title,
+      String description,
+      String body,
+      List<Tag> tags,
+      DateTime createdAt,
+      DateTime updatedAt) {
+    this.id = id;
+    this.userId = userId;
+    this.slug = slug;
+    this.title = title;
+    this.description = description;
+    this.body = body;
+    this.tags = tags;
+    this.createdAt = createdAt;
+    this.updatedAt = updatedAt;
+  }
+
   public void update(String title, String description, String body) {
     if (!Util.isEmpty(title)) {
       this.title = title;

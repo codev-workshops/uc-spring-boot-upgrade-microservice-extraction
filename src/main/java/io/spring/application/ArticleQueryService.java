@@ -2,10 +2,15 @@ package io.spring.application;
 
 import static java.util.stream.Collectors.toList;
 
+import io.spring.application.article.ArticleIdPage;
+import io.spring.application.article.ArticleQueryPort;
+import io.spring.application.article.ArticleRowPage;
 import io.spring.application.data.ArticleData;
 import io.spring.application.data.ArticleDataList;
 import io.spring.application.data.ArticleFavoriteCount;
+import io.spring.application.data.ArticleRow;
 import io.spring.application.data.ArticleTagList;
+import io.spring.application.data.ProfileData;
 import io.spring.application.data.UserData;
 import io.spring.application.favorite.FavoriteQueryPort;
 import io.spring.application.tag.TagQueryPort;
@@ -22,9 +27,18 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.joda.time.DateTime;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+/**
+ * Read model of the public article API. While Article reads stay in the monolith every method runs
+ * the SQL joins of {@code ArticleReadService.xml} (with the Phase 1/3 Favorite/Tag id-list
+ * routing). When {@code extraction.article.read} is {@code extracted} or {@code shadow} the service
+ * becomes a composer instead: rows and {@code tagList} come from the {@link ArticleQueryPort},
+ * usernames in {@code author=}/{@code favorited=} are resolved locally before the port is called,
+ * and author profile, {@code following} and favorites are added from the monolith/Favorite port.
+ */
 @Service
 public class ArticleQueryService {
   private final ArticleReadService articleReadService;
@@ -32,6 +46,7 @@ public class ArticleQueryService {
   private final FavoriteQueryPort favoriteQueryPort;
   private final UserReadService userReadService;
   private final TagQueryPort tagQueryPort;
+  private final ArticleQueryPort articleQueryPort;
 
   @Autowired
   public ArticleQueryService(
@@ -39,12 +54,45 @@ public class ArticleQueryService {
       UserRelationshipQueryService userRelationshipQueryService,
       FavoriteQueryPort favoriteQueryPort,
       UserReadService userReadService,
-      TagQueryPort tagQueryPort) {
+      TagQueryPort tagQueryPort,
+      ObjectProvider<ArticleQueryPort> articleQueryPort) {
+    this(
+        articleReadService,
+        userRelationshipQueryService,
+        favoriteQueryPort,
+        userReadService,
+        tagQueryPort,
+        articleQueryPort.getIfAvailable());
+  }
+
+  public ArticleQueryService(
+      ArticleReadService articleReadService,
+      UserRelationshipQueryService userRelationshipQueryService,
+      FavoriteQueryPort favoriteQueryPort,
+      UserReadService userReadService,
+      TagQueryPort tagQueryPort,
+      ArticleQueryPort articleQueryPort) {
     this.articleReadService = articleReadService;
     this.userRelationshipQueryService = userRelationshipQueryService;
     this.favoriteQueryPort = favoriteQueryPort;
     this.userReadService = userReadService;
     this.tagQueryPort = tagQueryPort;
+    this.articleQueryPort = articleQueryPort;
+  }
+
+  public ArticleQueryService(
+      ArticleReadService articleReadService,
+      UserRelationshipQueryService userRelationshipQueryService,
+      FavoriteQueryPort favoriteQueryPort,
+      UserReadService userReadService,
+      TagQueryPort tagQueryPort) {
+    this(
+        articleReadService,
+        userRelationshipQueryService,
+        favoriteQueryPort,
+        userReadService,
+        tagQueryPort,
+        (ArticleQueryPort) null);
   }
 
   public ArticleQueryService(
@@ -64,6 +112,9 @@ public class ArticleQueryService {
   }
 
   public Optional<ArticleData> findById(String id, User user) {
+    if (routeArticleThroughPort()) {
+      return composeOne(articleQueryPort.findById(id), user);
+    }
     ArticleData articleData = articleReadService.findById(id);
     if (articleData == null) {
       return Optional.empty();
@@ -77,6 +128,9 @@ public class ArticleQueryService {
   }
 
   public Optional<ArticleData> findBySlug(String slug, User user) {
+    if (routeArticleThroughPort()) {
+      return composeOne(articleQueryPort.findBySlug(slug), user);
+    }
     ArticleData articleData = articleReadService.findBySlug(slug);
     if (articleData == null) {
       return Optional.empty();
@@ -95,6 +149,9 @@ public class ArticleQueryService {
       String favoritedBy,
       CursorPageParameter<DateTime> page,
       User currentUser) {
+    if (routeArticleThroughPort()) {
+      return findRecentArticlesWithCursorViaPort(tag, author, favoritedBy, page, currentUser);
+    }
     List<String> articleIds;
     IdFilter filter = resolveIdFilter(tag, favoritedBy);
     if (filter.routed()) {
@@ -131,7 +188,9 @@ public class ArticleQueryService {
       return new CursorPager<>(new ArrayList<>(), page.getDirection(), false);
     } else {
       List<ArticleData> articles =
-          articleReadService.findArticlesOfAuthorsWithCursor(followdUsers, page);
+          routeArticleThroughPort()
+              ? compose(articleQueryPort.findArticlesOfAuthorsWithCursor(followdUsers, page))
+              : articleReadService.findArticlesOfAuthorsWithCursor(followdUsers, page);
       boolean hasExtra = articles.size() > page.getLimit();
       if (hasExtra) {
         articles.remove(page.getLimit());
@@ -146,6 +205,9 @@ public class ArticleQueryService {
 
   public ArticleDataList findRecentArticles(
       String tag, String author, String favoritedBy, Page page, User currentUser) {
+    if (routeArticleThroughPort()) {
+      return findRecentArticlesViaPort(tag, author, favoritedBy, page, currentUser);
+    }
     List<String> articleIds;
     int articleCount;
     IdFilter filter = resolveIdFilter(tag, favoritedBy);
@@ -178,12 +240,150 @@ public class ArticleQueryService {
     List<String> followdUsers = userRelationshipQueryService.followedUsers(user.getId());
     if (followdUsers.size() == 0) {
       return new ArticleDataList(new ArrayList<>(), 0);
+    } else if (routeArticleThroughPort()) {
+      ArticleRowPage rows = articleQueryPort.findArticlesOfAuthors(followdUsers, page);
+      List<ArticleData> articles = compose(rows.getArticles());
+      fillExtraInfo(articles, user);
+      return new ArticleDataList(articles, rows.getCount());
     } else {
       List<ArticleData> articles = articleReadService.findArticlesOfAuthors(followdUsers, page);
       fillExtraInfo(articles, user);
       int count = articleReadService.countFeedSize(followdUsers);
       return new ArticleDataList(articles, count);
     }
+  }
+
+  private boolean routeArticleThroughPort() {
+    return articleQueryPort != null && articleQueryPort.ownsArticleReads();
+  }
+
+  /**
+   * Public filter values are usernames; the Article port only knows ids. {@code author=} becomes
+   * the author's user id and {@code favorited=} the id list of that user's favorites (Favorite
+   * port). An unknown username short-circuits to an empty page without calling the port.
+   */
+  private static final class PortFilter {
+    final String authorId;
+    final List<String> ids;
+    final boolean empty;
+
+    PortFilter(String authorId, List<String> ids, boolean empty) {
+      this.authorId = authorId;
+      this.ids = ids;
+      this.empty = empty;
+    }
+  }
+
+  private PortFilter resolvePortFilter(String author, String favoritedBy) {
+    String authorId = null;
+    if (author != null) {
+      UserData user = userReadService.findByUsername(author);
+      if (user == null) {
+        return new PortFilter(null, null, true);
+      }
+      authorId = user.getId();
+    }
+    List<String> ids = null;
+    if (favoritedBy != null) {
+      ids = favoritedArticleIds(favoritedBy);
+      if (ids.isEmpty()) {
+        return new PortFilter(authorId, ids, true);
+      }
+    }
+    return new PortFilter(authorId, ids, false);
+  }
+
+  private ArticleDataList findRecentArticlesViaPort(
+      String tag, String author, String favoritedBy, Page page, User currentUser) {
+    PortFilter filter = resolvePortFilter(author, favoritedBy);
+    if (filter.empty) {
+      return new ArticleDataList(new ArrayList<>(), 0);
+    }
+    ArticleIdPage idPage = articleQueryPort.queryArticleIds(tag, filter.authorId, filter.ids, page);
+    if (idPage.getArticleIds().isEmpty()) {
+      return new ArticleDataList(new ArrayList<>(), idPage.getCount());
+    }
+    List<ArticleData> articles = compose(articleQueryPort.findArticles(idPage.getArticleIds()));
+    fillExtraInfo(articles, currentUser);
+    return new ArticleDataList(articles, idPage.getCount());
+  }
+
+  private CursorPager<ArticleData> findRecentArticlesWithCursorViaPort(
+      String tag,
+      String author,
+      String favoritedBy,
+      CursorPageParameter<DateTime> page,
+      User currentUser) {
+    PortFilter filter = resolvePortFilter(author, favoritedBy);
+    List<String> articleIds =
+        filter.empty
+            ? new ArrayList<>()
+            : new ArrayList<>(
+                articleQueryPort.queryArticleIdsWithCursor(tag, filter.authorId, filter.ids, page));
+    if (articleIds.isEmpty()) {
+      return new CursorPager<>(new ArrayList<>(), page.getDirection(), false);
+    }
+    boolean hasExtra = articleIds.size() > page.getLimit();
+    if (hasExtra) {
+      articleIds.remove(page.getLimit());
+    }
+    if (!page.isNext()) {
+      Collections.reverse(articleIds);
+    }
+    List<ArticleData> articles = compose(articleQueryPort.findArticles(articleIds));
+    fillExtraInfo(articles, currentUser);
+    return new CursorPager<>(articles, page.getDirection(), hasExtra);
+  }
+
+  private Optional<ArticleData> composeOne(Optional<ArticleRow> row, User user) {
+    if (!row.isPresent()) {
+      return Optional.empty();
+    }
+    ArticleData articleData = compose(Collections.singletonList(row.get())).get(0);
+    if (user != null) {
+      fillExtraInfo(articleData.getId(), user, articleData);
+    }
+    return Optional.of(articleData);
+  }
+
+  /**
+   * Row + local author profile, mirroring {@code TransferData.xml#articleData}: {@code following}
+   * starts {@code false}, {@code favorited}/{@code favoritesCount} are filled by the callers, and a
+   * missing author yields a {@code null} profile like the {@code LEFT JOIN users}.
+   */
+  private List<ArticleData> compose(List<ArticleRow> rows) {
+    List<ArticleData> result = new ArrayList<>(rows.size());
+    if (rows.isEmpty()) {
+      return result;
+    }
+    Map<String, UserData> users = new HashMap<>();
+    for (UserData user :
+        userReadService.findByIds(
+            rows.stream().map(ArticleRow::getUserId).distinct().collect(toList()))) {
+      users.put(user.getId(), user);
+    }
+    for (ArticleRow row : rows) {
+      UserData author = users.get(row.getUserId());
+      ProfileData profile =
+          author == null
+              ? null
+              : new ProfileData(
+                  author.getId(), author.getUsername(), author.getBio(), author.getImage(), false);
+      result.add(
+          new ArticleData(
+              row.getId(),
+              row.getSlug(),
+              row.getTitle(),
+              row.getDescription(),
+              row.getBody(),
+              false,
+              0,
+              row.getCreatedAt(),
+              row.getUpdatedAt(),
+              row.getTagList() == null ? new ArrayList<>() : new ArrayList<>(row.getTagList()),
+              profile));
+    }
+    return result;
   }
 
   /**
@@ -231,8 +431,12 @@ public class ArticleQueryService {
     return tag != null && tagQueryPort != null && tagQueryPort.ownsTagReads();
   }
 
+  /** Tags come from the Tag port only while the article rows themselves are still SQL joins. */
   private void setTagList(List<ArticleData> articles) {
-    if (articles.isEmpty() || tagQueryPort == null || !tagQueryPort.ownsTagReads()) {
+    if (articles.isEmpty()
+        || routeArticleThroughPort()
+        || tagQueryPort == null
+        || !tagQueryPort.ownsTagReads()) {
       return;
     }
     Map<String, List<String>> tagsByArticle = new HashMap<>();

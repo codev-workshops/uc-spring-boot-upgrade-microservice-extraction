@@ -37,7 +37,23 @@ public enum Domain {
       List.of(
           SyncTable.keyed("tags", List.of("id"), List.of("name"), List.of("id")),
           SyncTable.unconstrained(
-              "article_tags", List.of("article_id", "tag_id"), List.of("articleId", "tagId"))));
+              "article_tags", List.of("article_id", "tag_id"), List.of("articleId", "tagId")))),
+  /**
+   * {@code articles(id, user_id, slug UNIQUE, title, description, body, created_at, updated_at)}
+   * keyed by {@code id}; every other column is compared (timestamps as stored). {@code slug} is
+   * UNIQUE on both sides, so a row whose slug is already held by a different id is reported as a
+   * conflict. Tag tables are {@link #TAG}, run it first.
+   */
+  ARTICLE(
+      "article",
+      List.of(
+          SyncTable.keyed(
+              "articles",
+              List.of("id"),
+              List.of(
+                  "user_id", "slug", "title", "description", "body", "created_at", "updated_at"),
+              List.of("id"),
+              List.of("slug"))));
 
   public final String domainName;
   public final List<SyncTable> tables;

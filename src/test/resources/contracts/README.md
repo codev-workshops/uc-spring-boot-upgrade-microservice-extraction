@@ -44,3 +44,8 @@ Favorite service (consumer) relies on when it calls the monolith.
   (phase-3-tag.md section 2.1) as the monolith's `ArticleServiceClient` expects it. Excluded from
   producer verification here (`excludedFiles = [..., 'tag/**']`); article-service verifies them as
   its provider contracts. See `tag/README.md`.
+- `article/*.groovy` — **consumer-side**. The Article part of article-service's canonical internal
+  API (phase-4-article.md section 2.1, one contract per endpoint) as the monolith's
+  `ArticleDomainServiceClient` expects it. Excluded from producer verification here
+  (`excludedFiles = [..., 'article/**']`); article-service verifies them as its provider contracts.
+  See `article/README.md`.

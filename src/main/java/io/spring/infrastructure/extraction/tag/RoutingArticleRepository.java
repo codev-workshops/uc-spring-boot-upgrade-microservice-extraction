@@ -6,18 +6,16 @@ import io.spring.core.article.ArticleRepository;
 import io.spring.infrastructure.extraction.ExtractionProperties;
 import io.spring.infrastructure.repository.MyBatisArticleRepository;
 import java.util.Optional;
-import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Repository;
 
 /**
- * The {@link ArticleRepository} {@code ArticleCommandService}, {@code ArticleApi} and the GraphQL
- * mutations see. Articles stay in the monolith in Phase 3, so every call is delegated to {@link
- * MyBatisArticleRepository}; on a create, once its {@code @Transactional save} (article, tags and
- * relations) has committed, the article's tag set is additionally pushed through the routing {@link
- * TagCommandPort} when {@code extraction.tag.write} asks for a remote copy. Update and delete never
- * touch tags, exactly like the monolith.
+ * Phase 3 article store: the monolith-side write path used while {@code extraction.article.write}
+ * is {@code monolith} (see {@code extraction.article.LocalArticleCommand}). Every call is delegated
+ * to {@link MyBatisArticleRepository}; on a create, once its {@code @Transactional save} (article,
+ * tags and relations) has committed, the article's tag set is additionally pushed through the
+ * routing {@link TagCommandPort} when {@code extraction.tag.write} asks for a remote copy. Update
+ * and delete never touch tags, exactly like the monolith.
  */
-@Primary
 @Repository
 public class RoutingArticleRepository implements ArticleRepository {
   private final MyBatisArticleRepository monolith;
