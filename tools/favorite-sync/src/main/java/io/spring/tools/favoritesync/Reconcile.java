@@ -21,13 +21,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Diff of a {@link Domain} table between the monolith DB ({@code --source}) and the service DB
- * ({@code --target}) with optional repair (05-data-sync-and-rollback-design.md §4).
+ * Diff of every {@link SyncTable} of a {@link Domain} between the monolith DB ({@code --source})
+ * and the service DB ({@code --target}) with optional repair (05-data-sync-and-rollback-design.md
+ * §4).
  *
  * <p>Both row streams are read in natural-key order and merge-joined, so memory use is bounded by
  * the size of the <em>difference</em>, not of the tables. Rows present on both sides whose payload
  * differs land in the {@code diverged} bucket (always empty for key-only tables such as {@code
- * article_favorites}).
+ * article_favorites} and {@code article_tags}). For a table whose key SQLite does not enforce
+ * ({@code article_tags}) repeated keys are collapsed to one logical row and reported as duplicates;
+ * a repair never multiplies them.
+ *
+ * <p>With a multi-table domain every table is diffed, then — if repairing — the {@code
+ * --max-repair} guard is evaluated over the whole run before anything is written, so a mass-drift
+ * run touches no table at all.
  */
 public final class Reconcile {
 
@@ -78,6 +85,7 @@ public final class Reconcile {
   }
 
   public static final class Diff {
+    public SyncTable table;
     public long sourceCount;
     public long targetCount;
     public String sourceChecksum;
@@ -85,32 +93,89 @@ public final class Reconcile {
     public final List<Row> missingInTarget = new ArrayList<>();
     public final List<Row> extraInTarget = new ArrayList<>();
     public final List<Divergence> diverged = new ArrayList<>();
+    /** Keys stored more than once on a side whose key has no unique constraint. */
+    public final List<Row> duplicateInSource = new ArrayList<>();
+
+    public final List<Row> duplicateInTarget = new ArrayList<>();
 
     public long driftRows() {
       return missingInTarget.size() + extraInTarget.size() + diverged.size();
     }
   }
 
+  /** What a repair would write for one table. */
+  private static final class Plan {
+    final Diff diff;
+    final List<Row> insert;
+    final List<Row> delete;
+    final List<Row> update;
+
+    Plan(Diff diff, List<Row> insert, List<Row> delete, List<Row> update) {
+      this.diff = diff;
+      this.insert = insert;
+      this.delete = delete;
+      this.update = update;
+    }
+
+    long touched() {
+      return insert.size() + delete.size() + update.size();
+    }
+  }
+
   public static final class Outcome {
+    public final List<Diff> beforeTables;
+    public final List<Diff> afterTables;
+    /** First table of the domain, for the single-table domains. */
     public final Diff before;
+
     public final Diff after;
     public final long inserted;
     public final long deleted;
     public final long updated;
     public final ObjectNode report;
 
-    Outcome(Diff before, Diff after, long inserted, long deleted, long updated, ObjectNode report) {
-      this.before = before;
-      this.after = after;
+    Outcome(
+        List<Diff> beforeTables,
+        List<Diff> afterTables,
+        long inserted,
+        long deleted,
+        long updated,
+        ObjectNode report) {
+      this.beforeTables = List.copyOf(beforeTables);
+      this.afterTables = afterTables == null ? null : List.copyOf(afterTables);
+      this.before = this.beforeTables.get(0);
+      this.after = this.afterTables == null ? null : this.afterTables.get(0);
       this.inserted = inserted;
       this.deleted = deleted;
       this.updated = updated;
       this.report = report;
     }
 
-    /** Drift that remains after this run (post-repair if repair ran). */
+    public Diff before(String table) {
+      return find(beforeTables, table);
+    }
+
+    public Diff after(String table) {
+      return afterTables == null ? null : find(afterTables, table);
+    }
+
+    /** Drift that remains after this run (post-repair if repair ran), over every table. */
     public long remainingDrift() {
-      return (after == null ? before : after).driftRows();
+      List<Diff> diffs = afterTables == null ? beforeTables : afterTables;
+      long drift = 0;
+      for (Diff d : diffs) {
+        drift += d.driftRows();
+      }
+      return drift;
+    }
+
+    private static Diff find(List<Diff> diffs, String table) {
+      for (Diff d : diffs) {
+        if (d.table.table.equals(table)) {
+          return d;
+        }
+      }
+      throw new IllegalArgumentException("no such table in this run: " + table);
     }
   }
 
@@ -129,31 +194,37 @@ public final class Reconcile {
 
   public Outcome run() throws SQLException {
     Instant runId = Instant.now().truncatedTo(ChronoUnit.SECONDS);
-    Diff before;
-    Diff after = null;
+    List<Diff> before = new ArrayList<>();
+    List<Diff> after = null;
     long inserted = 0;
     long deleted = 0;
     long updated = 0;
-    boolean repairWrites = opts.repair != Repair.NONE;
+    boolean toTarget = opts.repair == Repair.TO_TARGET;
     try (Connection src = SyncDb.open(domain, opts.source, opts.repair != Repair.TO_SOURCE);
         Connection dst = SyncDb.open(domain, opts.target, opts.repair != Repair.TO_TARGET)) {
-      before = diff(domain, src, dst);
-      logSummary("before", before);
-      if (repairWrites && before.driftRows() > 0) {
-        boolean toTarget = opts.repair == Repair.TO_TARGET;
-        Connection writeSide = toTarget ? dst : src;
-        List<Row> toInsert = toTarget ? before.missingInTarget : before.extraInTarget;
-        List<Row> toDelete = toTarget ? before.extraInTarget : before.missingInTarget;
-        List<Row> toUpdate = new ArrayList<>(before.diverged.size());
-        for (Divergence d : before.diverged) {
-          toUpdate.add(toTarget ? d.source : d.target);
+      for (SyncTable table : domain.tables) {
+        Diff d = diff(table, src, dst);
+        logSummary("before", d);
+        before.add(d);
+      }
+      if (opts.repair != Repair.NONE && driftRows(before) > 0) {
+        List<Plan> plans = new ArrayList<>(before.size());
+        long touched = 0;
+        long authoritativeRows = 0;
+        for (Diff d : before) {
+          List<Row> toInsert = toTarget ? d.missingInTarget : d.extraInTarget;
+          List<Row> toDelete =
+              opts.deleteExtras ? (toTarget ? d.extraInTarget : d.missingInTarget) : List.<Row>of();
+          List<Row> toUpdate = new ArrayList<>(d.diverged.size());
+          for (Divergence div : d.diverged) {
+            toUpdate.add(toTarget ? div.source : div.target);
+          }
+          Plan plan = new Plan(d, toInsert, toDelete, toUpdate);
+          plans.add(plan);
+          touched += plan.touched();
+          authoritativeRows += toTarget ? d.sourceCount : d.targetCount;
         }
-        if (!opts.deleteExtras) {
-          toDelete = List.of();
-        }
-        long authoritativeRows = toTarget ? before.sourceCount : before.targetCount;
         long limit = effectiveMaxRepair(authoritativeRows);
-        long touched = toInsert.size() + toDelete.size() + toUpdate.size();
         if (limit > 0 && touched > limit) {
           throw new SyncException(
               "repair would touch "
@@ -163,9 +234,12 @@ public final class Reconcile {
                   + "; mass drift means dual-write is broken - fix that first or pass an explicit"
                   + " --max-repair");
         }
-        inserted = apply(writeSide, toInsert, toDelete, toUpdate);
-        deleted = toDelete.size();
-        updated = toUpdate.size();
+        Connection writeSide = toTarget ? dst : src;
+        for (Plan plan : plans) {
+          inserted += apply(plan.diff.table, writeSide, plan.insert, plan.delete, plan.update);
+          deleted += plan.delete.size();
+          updated += plan.update.size();
+        }
         out.println(
             "reconcile repair="
                 + opts.repair.name().toLowerCase().replace('_', '-')
@@ -176,8 +250,12 @@ public final class Reconcile {
                 + " updated="
                 + updated
                 + (opts.deleteExtras ? "" : " (extras kept; pass --delete-extras to remove them)"));
-        after = diff(domain, src, dst);
-        logSummary("after", after);
+        after = new ArrayList<>();
+        for (SyncTable table : domain.tables) {
+          Diff d = diff(table, src, dst);
+          logSummary("after", d);
+          after.add(d);
+        }
       }
     }
     ObjectNode report = report(runId, before, after, inserted, deleted, updated);
@@ -185,6 +263,14 @@ public final class Reconcile {
       writeReport(report);
     }
     return new Outcome(before, after, inserted, deleted, updated, report);
+  }
+
+  private static long driftRows(List<Diff> diffs) {
+    long drift = 0;
+    for (Diff d : diffs) {
+      drift += d.driftRows();
+    }
+    return drift;
   }
 
   long effectiveMaxRepair(long authoritativeRows) {
@@ -199,7 +285,7 @@ public final class Reconcile {
         "reconcile domain="
             + domain.domainName
             + " table="
-            + domain.table
+            + d.table.table
             + " phase="
             + phase
             + " monolith="
@@ -212,36 +298,42 @@ public final class Reconcile {
             + d.extraInTarget.size()
             + " diverged="
             + d.diverged.size()
+            + (d.table.uniqueKey
+                ? ""
+                : " duplicateKeys=" + d.duplicateInSource.size() + "/" + d.duplicateInTarget.size())
             + " status="
             + (d.driftRows() == 0 ? "CLEAN" : "DRIFT"));
   }
 
-  static Diff diff(Domain domain, Connection src, Connection dst) throws SQLException {
+  static Diff diff(SyncTable table, Connection src, Connection dst) throws SQLException {
     Diff d = new Diff();
-    d.sourceCount = SyncDb.count(domain, src);
-    d.targetCount = SyncDb.count(domain, dst);
+    d.table = table;
+    d.sourceCount = SyncDb.count(table, src);
+    d.targetCount = SyncDb.count(table, dst);
     MessageDigest srcDigest = sha256();
     MessageDigest dstDigest = sha256();
-    try (PreparedStatement sps = SyncDb.orderedRows(domain, src);
-        PreparedStatement dps = SyncDb.orderedRows(domain, dst);
+    try (PreparedStatement sps = SyncDb.orderedRows(table, src);
+        PreparedStatement dps = SyncDb.orderedRows(table, dst);
         ResultSet s = sps.executeQuery();
         ResultSet t = dps.executeQuery()) {
-      Row sk = next(s, domain, srcDigest);
-      Row tk = next(t, domain, dstDigest);
+      Stream source = new Stream(s, table, srcDigest, d.duplicateInSource);
+      Stream target = new Stream(t, table, dstDigest, d.duplicateInTarget);
+      Row sk = source.next();
+      Row tk = target.next();
       while (sk != null || tk != null) {
         int c = sk == null ? 1 : tk == null ? -1 : sk.compareTo(tk);
         if (c == 0) {
           if (!sk.samePayload(tk)) {
-            d.diverged.add(new Divergence(sk, tk, sk.differingColumns(tk, domain)));
+            d.diverged.add(new Divergence(sk, tk, sk.differingColumns(tk, table)));
           }
-          sk = next(s, domain, srcDigest);
-          tk = next(t, domain, dstDigest);
+          sk = source.next();
+          tk = target.next();
         } else if (c < 0) {
           d.missingInTarget.add(sk);
-          sk = next(s, domain, srcDigest);
+          sk = source.next();
         } else {
           d.extraInTarget.add(tk);
-          tk = next(t, domain, dstDigest);
+          tk = target.next();
         }
       }
     }
@@ -250,31 +342,62 @@ public final class Reconcile {
     return d;
   }
 
-  private static Row next(ResultSet rs, Domain domain, MessageDigest digest) throws SQLException {
-    if (!rs.next()) {
-      return null;
+  /**
+   * One side of the merge-join: reads rows in key order, feeds the checksum and collapses repeated
+   * keys of an unconstrained table into a single logical row (the extra copies are collected as
+   * duplicates and do not take part in the diff).
+   */
+  private static final class Stream {
+    private final ResultSet rs;
+    private final SyncTable table;
+    private final MessageDigest digest;
+    private final List<Row> duplicates;
+    private Row pending;
+
+    Stream(ResultSet rs, SyncTable table, MessageDigest digest, List<Row> duplicates)
+        throws SQLException {
+      this.rs = rs;
+      this.table = table;
+      this.digest = digest;
+      this.duplicates = duplicates;
+      this.pending = read();
     }
-    Row r = Row.read(rs, domain);
-    digest.update(r.digestBytes());
-    return r;
+
+    Row next() throws SQLException {
+      Row current = pending;
+      pending = read();
+      while (current != null && pending != null && current.compareTo(pending) == 0) {
+        duplicates.add(pending);
+        pending = read();
+      }
+      if (current != null) {
+        digest.update(current.digestBytes());
+      }
+      return current;
+    }
+
+    private Row read() throws SQLException {
+      return rs.next() ? Row.read(rs, table) : null;
+    }
   }
 
-  private long apply(Connection c, List<Row> insert, List<Row> delete, List<Row> update)
+  private long apply(
+      SyncTable table, Connection c, List<Row> insert, List<Row> delete, List<Row> update)
       throws SQLException {
     boolean auto = c.getAutoCommit();
     c.setAutoCommit(false);
     try {
       long before = SyncDb.totalChanges(c);
-      try (PreparedStatement ps = SyncDb.insertOrIgnore(domain, c)) {
+      try (PreparedStatement ps = SyncDb.insertIfAbsent(table, c)) {
         for (Row r : insert) {
-          r.bindAll(ps);
+          r.bindInsert(ps, table);
           ps.addBatch();
         }
         ps.executeBatch();
       }
       long inserted = SyncDb.totalChanges(c) - before;
       if (!update.isEmpty()) {
-        try (PreparedStatement ps = SyncDb.updateByKey(domain, c)) {
+        try (PreparedStatement ps = SyncDb.updateByKey(table, c)) {
           for (Row r : update) {
             r.bindPayloadThenKey(ps);
             ps.addBatch();
@@ -282,7 +405,7 @@ public final class Reconcile {
           ps.executeBatch();
         }
       }
-      try (PreparedStatement ps = SyncDb.deleteByKey(domain, c)) {
+      try (PreparedStatement ps = SyncDb.deleteByKey(table, c)) {
         for (Row r : delete) {
           r.bindKey(ps);
           ps.addBatch();
@@ -300,33 +423,34 @@ public final class Reconcile {
   }
 
   private ObjectNode report(
-      Instant runId, Diff before, Diff after, long inserted, long deleted, long updated) {
+      Instant runId,
+      List<Diff> before,
+      List<Diff> after,
+      long inserted,
+      long deleted,
+      long updated) {
     ObjectNode root = JSON.createObjectNode();
     root.put("runId", DateTimeFormatter.ISO_INSTANT.format(runId));
     root.put("domain", domain.domainName);
     root.put("authoritative", opts.authoritative);
     root.put("graceSeconds", 0);
     ArrayNode tables = root.putArray("tables");
-    ObjectNode t = tables.addObject();
-    t.put("table", domain.table);
-    t.put("monolithCount", before.sourceCount);
-    t.put("serviceCount", before.targetCount);
-    t.put("monolithChecksum", before.sourceChecksum);
-    t.put("serviceChecksum", before.targetChecksum);
-    boolean truncated = keys(t, "missingInService", before.missingInTarget);
-    truncated |= keys(t, "extraInService", before.extraInTarget);
-    truncated |= diverged(t, before.diverged);
-    if (truncated) {
-      t.put("truncated", true);
+    for (Diff d : before) {
+      table(tables.addObject(), d);
     }
-    t.put("status", before.driftRows() == 0 ? "CLEAN" : "DRIFT");
 
-    Diff finalDiff = after == null ? before : after;
+    List<Diff> finalDiffs = after == null ? before : after;
+    long driftTables = 0;
+    for (Diff d : finalDiffs) {
+      if (d.driftRows() > 0) {
+        driftTables++;
+      }
+    }
     ObjectNode summary = root.putObject("summary");
-    summary.put("drift", finalDiff.driftRows() == 0 ? 0 : 1);
-    summary.put("clean", finalDiff.driftRows() == 0 ? 1 : 0);
-    summary.put("driftRows", finalDiff.driftRows());
-    summary.put("status", finalDiff.driftRows() == 0 ? "CLEAN" : "DRIFT");
+    summary.put("drift", driftTables);
+    summary.put("clean", finalDiffs.size() - driftTables);
+    summary.put("driftRows", driftRows(finalDiffs));
+    summary.put("status", driftRows(finalDiffs) == 0 ? "CLEAN" : "DRIFT");
 
     if (opts.repair != Repair.NONE) {
       ObjectNode repair = root.putObject("repair");
@@ -336,43 +460,74 @@ public final class Reconcile {
       repair.put("deleted", deleted);
       repair.put("updated", updated);
       if (after != null) {
-        repair.put("monolithCountAfter", after.sourceCount);
-        repair.put("serviceCountAfter", after.targetCount);
-        repair.put("missingInServiceAfter", after.missingInTarget.size());
-        repair.put("extraInServiceAfter", after.extraInTarget.size());
-        repair.put("divergedAfter", after.diverged.size());
+        long sourceAfter = 0;
+        long targetAfter = 0;
+        long missingAfter = 0;
+        long extraAfter = 0;
+        long divergedAfter = 0;
+        for (Diff d : after) {
+          sourceAfter += d.sourceCount;
+          targetAfter += d.targetCount;
+          missingAfter += d.missingInTarget.size();
+          extraAfter += d.extraInTarget.size();
+          divergedAfter += d.diverged.size();
+        }
+        repair.put("monolithCountAfter", sourceAfter);
+        repair.put("serviceCountAfter", targetAfter);
+        repair.put("missingInServiceAfter", missingAfter);
+        repair.put("extraInServiceAfter", extraAfter);
+        repair.put("divergedAfter", divergedAfter);
       }
     }
     return root;
   }
 
-  private void putKey(ObjectNode node, Row row) {
+  private void table(ObjectNode t, Diff d) {
+    t.put("table", d.table.table);
+    t.put("monolithCount", d.sourceCount);
+    t.put("serviceCount", d.targetCount);
+    t.put("monolithChecksum", d.sourceChecksum);
+    t.put("serviceChecksum", d.targetChecksum);
+    boolean truncated = keys(t, d, "missingInService", d.missingInTarget);
+    truncated |= keys(t, d, "extraInService", d.extraInTarget);
+    truncated |= diverged(t, d, d.diverged);
+    if (!d.table.uniqueKey) {
+      truncated |= keys(t, d, "duplicateKeysInMonolith", d.duplicateInSource);
+      truncated |= keys(t, d, "duplicateKeysInService", d.duplicateInTarget);
+    }
+    if (truncated) {
+      t.put("truncated", true);
+    }
+    t.put("status", d.driftRows() == 0 ? "CLEAN" : "DRIFT");
+  }
+
+  private void putKey(ObjectNode node, Diff d, Row row) {
     for (int i = 0; i < row.key.length; i++) {
-      node.put(domain.keyJsonNames.get(i), row.key[i]);
+      node.put(d.table.keyJsonNames.get(i), row.key[i]);
     }
   }
 
-  private boolean keys(ObjectNode parent, String field, List<Row> rows) {
+  private boolean keys(ObjectNode parent, Diff d, String field, List<Row> rows) {
     ArrayNode arr = parent.putArray(field);
     int n = Math.min(rows.size(), REPORT_TRUNCATE_AT);
     for (int i = 0; i < n; i++) {
-      putKey(arr.addObject(), rows.get(i));
+      putKey(arr.addObject(), d, rows.get(i));
     }
     parent.put(field + "Total", rows.size());
     return rows.size() > REPORT_TRUNCATE_AT;
   }
 
-  private boolean diverged(ObjectNode parent, List<Divergence> list) {
+  private boolean diverged(ObjectNode parent, Diff d, List<Divergence> list) {
     ArrayNode arr = parent.putArray("diverged");
     int n = Math.min(list.size(), REPORT_TRUNCATE_AT);
     for (int i = 0; i < n; i++) {
-      Divergence d = list.get(i);
+      Divergence div = list.get(i);
       ObjectNode node = arr.addObject();
-      putKey(node, d.source);
+      putKey(node, d, div.source);
       ArrayNode cols = node.putArray("columns");
-      d.columns.forEach(cols::add);
+      div.columns.forEach(cols::add);
     }
-    if (domain.hasPayload()) {
+    if (d.table.hasPayload()) {
       parent.put("divergedTotal", list.size());
     }
     return list.size() > REPORT_TRUNCATE_AT;

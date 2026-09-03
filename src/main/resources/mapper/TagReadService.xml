@@ -4,4 +4,20 @@
     <select id="all" resultType="string">
         select name from tags
     </select>
+    <select id="articleTagRows" resultType="io.spring.infrastructure.mybatis.readservice.ArticleTagRow">
+        select AT.article_id as articleId, T.name as name
+        from article_tags AT
+        join tags T on T.id = AT.tag_id
+        where AT.article_id in
+        <foreach collection="articleIds" item="item" separator="," open="(" close=")">
+            #{item}
+        </foreach>
+        order by AT.rowid
+    </select>
+    <select id="articleIdsByTag" resultType="string">
+        select distinct AT.article_id
+        from article_tags AT
+        join tags T on T.id = AT.tag_id
+        where T.name = #{tagName}
+    </select>
 </mapper>

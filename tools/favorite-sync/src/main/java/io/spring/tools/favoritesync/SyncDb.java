@@ -9,11 +9,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-/** Thin SQLite helpers for a {@link Domain} table (identical schema on both sides). */
+/** Thin SQLite helpers for a {@link SyncTable} (identical schema on both sides). */
 public final class SyncDb {
 
   private SyncDb() {}
 
+  /** Opens {@code file} and verifies that every table of {@code domain} exists in it. */
   public static Connection open(Domain d, Path file, boolean readOnly) throws SQLException {
     if (!Files.isRegularFile(file)) {
       throw new SyncException("database file does not exist: " + file);
@@ -23,19 +24,25 @@ public final class SyncDb {
       url = "jdbc:sqlite:file:" + file.toAbsolutePath() + "?mode=ro";
     }
     Connection c = DriverManager.getConnection(url);
-    requireTable(d, c, file);
+    requireTables(d, c, file);
     return c;
   }
 
-  static void requireTable(Domain d, Connection c, Path file) throws SQLException {
+  static void requireTables(Domain d, Connection c, Path file) throws SQLException {
+    for (SyncTable t : d.tables) {
+      requireTable(t, c, file);
+    }
+  }
+
+  static void requireTable(SyncTable t, Connection c, Path file) throws SQLException {
     try (PreparedStatement ps =
         c.prepareStatement("select 1 from sqlite_master where type = 'table' and name = ?")) {
-      ps.setString(1, d.table);
+      ps.setString(1, t.table);
       try (ResultSet rs = ps.executeQuery()) {
         if (!rs.next()) {
           throw new SyncException(
               "table '"
-                  + d.table
+                  + t.table
                   + "' is missing in "
                   + file
                   + " (run the Flyway V1 migration of the owning application first)");
@@ -51,14 +58,14 @@ public final class SyncDb {
     }
     try (Connection c = DriverManager.getConnection("jdbc:sqlite:" + source.toAbsolutePath());
         Statement st = c.createStatement()) {
-      requireTable(d, c, source);
+      requireTables(d, c, source);
       st.executeUpdate("backup to '" + target.toAbsolutePath().toString().replace("'", "''") + "'");
     }
   }
 
-  public static long count(Domain d, Connection c) throws SQLException {
+  public static long count(SyncTable t, Connection c) throws SQLException {
     try (Statement st = c.createStatement();
-        ResultSet rs = st.executeQuery("select count(*) from " + d.table)) {
+        ResultSet rs = st.executeQuery("select count(*) from " + t.table)) {
       rs.next();
       return rs.getLong(1);
     }
@@ -73,21 +80,21 @@ public final class SyncDb {
   }
 
   /** Streams full rows in natural-key order. Caller closes the statement. */
-  public static PreparedStatement orderedRows(Domain d, Connection c) throws SQLException {
-    PreparedStatement ps = c.prepareStatement(d.selectOrdered());
+  public static PreparedStatement orderedRows(SyncTable t, Connection c) throws SQLException {
+    PreparedStatement ps = c.prepareStatement(t.selectOrdered());
     ps.setFetchSize(1000);
     return ps;
   }
 
-  public static PreparedStatement insertOrIgnore(Domain d, Connection c) throws SQLException {
-    return c.prepareStatement(d.insertOrIgnore());
+  public static PreparedStatement insertIfAbsent(SyncTable t, Connection c) throws SQLException {
+    return c.prepareStatement(t.insertIfAbsent());
   }
 
-  public static PreparedStatement deleteByKey(Domain d, Connection c) throws SQLException {
-    return c.prepareStatement(d.deleteByKey());
+  public static PreparedStatement deleteByKey(SyncTable t, Connection c) throws SQLException {
+    return c.prepareStatement(t.deleteByKey());
   }
 
-  public static PreparedStatement updateByKey(Domain d, Connection c) throws SQLException {
-    return c.prepareStatement(d.updateByKey());
+  public static PreparedStatement updateByKey(SyncTable t, Connection c) throws SQLException {
+    return c.prepareStatement(t.updateByKey());
   }
 }

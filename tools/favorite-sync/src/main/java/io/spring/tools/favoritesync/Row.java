@@ -10,8 +10,8 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * One row of a {@link Domain} table: natural key (always text) plus the raw payload values exactly
- * as SQLite stores them ({@code Long}, {@code Double}, {@code String} or {@code byte[]}), so a copy
+ * One row of a {@link SyncTable}: natural key (always text) plus the raw payload values exactly as
+ * SQLite stores them ({@code Long}, {@code Double}, {@code String} or {@code byte[]}), so a copy
  * round-trips timestamps and text without reformatting. Ordering and equality follow the key;
  * {@link #samePayload} compares the payload.
  */
@@ -27,7 +27,7 @@ public final class Row implements Comparable<Row> {
     }
   }
 
-  static Row read(ResultSet rs, Domain d) throws SQLException {
+  static Row read(ResultSet rs, SyncTable d) throws SQLException {
     String[] key = new String[d.keyColumns.size()];
     for (int i = 0; i < key.length; i++) {
       key[i] = rs.getString(i + 1);
@@ -39,8 +39,11 @@ public final class Row implements Comparable<Row> {
     return new Row(key, payload);
   }
 
-  /** Binds key then payload, matching the column order of {@link Domain#insertOrIgnore()}. */
-  void bindAll(PreparedStatement ps) throws SQLException {
+  /**
+   * Binds the parameters of {@link SyncTable#insertIfAbsent()}: key then payload, followed by the
+   * key again for a table whose key SQLite does not enforce.
+   */
+  void bindInsert(PreparedStatement ps, SyncTable table) throws SQLException {
     int i = 1;
     for (String k : key) {
       ps.setString(i++, k);
@@ -48,9 +51,14 @@ public final class Row implements Comparable<Row> {
     for (Object p : payload) {
       ps.setObject(i++, p);
     }
+    if (!table.uniqueKey) {
+      for (String k : key) {
+        ps.setString(i++, k);
+      }
+    }
   }
 
-  /** Binds payload then key, matching {@link Domain#updateByKey()}. */
+  /** Binds payload then key, matching {@link SyncTable#updateByKey()}. */
   void bindPayloadThenKey(PreparedStatement ps) throws SQLException {
     int i = 1;
     for (Object p : payload) {
@@ -72,7 +80,7 @@ public final class Row implements Comparable<Row> {
   }
 
   /** Names of payload columns whose values differ from {@code o}. */
-  public List<String> differingColumns(Row o, Domain d) {
+  public List<String> differingColumns(Row o, SyncTable d) {
     List<String> cols = new ArrayList<>();
     for (int i = 0; i < payload.length; i++) {
       if (!Objects.deepEquals(payload[i], o.payload[i])) {
