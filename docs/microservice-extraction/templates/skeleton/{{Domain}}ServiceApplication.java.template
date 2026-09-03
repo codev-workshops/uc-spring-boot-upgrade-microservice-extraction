@@ -1,0 +1,12 @@
+package io.spring.{{domain}};
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class {{Domain}}ServiceApplication {
+
+  public static void main(String[] args) {
+    SpringApplication.run({{Domain}}ServiceApplication.class, args);
+  }
+}

@@ -1,0 +1,26 @@
+server.port={{port}}
+
+# Own SQLite file — never the monolith's dev.db
+spring.datasource.url=jdbc:sqlite:{{domain}}.db
+spring.datasource.driver-class-name=org.sqlite.JDBC
+spring.datasource.username=
+spring.datasource.password=
+spring.jackson.deserialization.UNWRAP_ROOT_VALUE=true
+
+# Must equal the monolith's jwt.secret so monolith-issued tokens validate here
+jwt.secret=nRvyYC4soFxBdZ-F-5Nnzz5USXstR1YylsTd-mA0aKtI9HUlriGrtkf-TiuDapkLiUCogO3JOK7kwZisrHp6wA
+jwt.sessionTime=86400
+
+mybatis.configuration.cache-enabled=true
+mybatis.configuration.default-statement-timeout=3000
+mybatis.configuration.map-underscore-to-camel-case=true
+mybatis.configuration.use-generated-keys=true
+mybatis.type-handlers-package=io.spring.{{domain}}.infrastructure.mybatis
+mybatis.mapper-locations=mapper/*.xml
+
+# Downstream services (monolith until the domain is extracted)
+{{other}}.service.url=http://localhost:8080
+{{other}}.service.connect-timeout-ms=2000
+{{other}}.service.read-timeout-ms=5000
+
+management.endpoints.web.exposure.include=health
