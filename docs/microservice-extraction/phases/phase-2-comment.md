@@ -32,7 +32,7 @@ Seed: `comments` rows in `V2__seed_data.sql`.
 - Authorization (article-author-or-comment-author) stays in the monolith at first because the service does not know article authors; the service only enforces "comment.userId == caller" when called directly. Decision recorded in §3.
 
 ### 2.2 Monolith seam
-- `extraction.comment.{enabled,dual-write,base-url}` in `ExtractionProperties`.
+- `extraction.comment.{enabled,read,write,base-url}` (read: monolith|extracted|shadow; write: monolith|extracted|dual-write — see `04-strangler-wiring-design.md` §1.1) in `ExtractionProperties`.
 - `CommentQueryPort` (`MyBatisCommentQueryAdapter` / `RemoteCommentQueryAdapter`) and `CommentCommandPort` (`Local` / `Remote` / `DualWrite`).
 - `CommentQueryService` is refactored to compose the response: comment rows from the port, author profiles from `UserReadService` (still local in Phase 2), `following` from `UserRelationshipQueryService`. The composed `CommentData` must serialize identically (order of fields, `updatedAt == createdAt` quirk).
 - Cursor pagination (`findByArticleIdWithCursor`, `CursorPager`) must produce identical `hasNext`/cursor values: the service reproduces the `created_at <`/`>` + `limit+1` semantics.

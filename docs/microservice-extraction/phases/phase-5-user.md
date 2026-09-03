@@ -4,7 +4,7 @@ Status: **design, awaiting approval**. Starts only after Phase 4 is confirmed co
 
 ## 1. Scope
 
-Extract Users/Profiles/Follows into `user-service` (port 8085, DB `user.db`).
+Extract Users/Profiles/Follows into `user-service` (port 8084, DB `user.db`).
 
 Owned data: `users (id, username UNIQUE, password, email UNIQUE, bio, image)`, `follows (user_id, follow_id)`. Seed: users + follows.
 
@@ -27,7 +27,7 @@ Owned data: `users (id, username UNIQUE, password, email UNIQUE, bio, image)`, `
 - Token issuing: the **monolith keeps issuing and validating JWTs** (`DefaultJwtService`, same `jwt.secret`) in this phase; `user-service` validates the same tokens. Moving the issuer is a later, separate decision (open question).
 
 ### 2.2 Monolith seam
-- `extraction.user.{enabled,dual-write,base-url}`.
+- `extraction.user.{enabled,read,write,base-url}` (read: monolith|extracted|shadow; write: monolith|extracted|dual-write — see `04-strangler-wiring-design.md` §1.1).
 - `UserQueryPort` (`findById`, `findByUsername`, `findByEmail`, `profilesByIds`), `UserCommandPort`, `FollowPort` (`followingAuthors`, `isFollowing`, `followedUsers`, `follow`, `unfollow`).
 - `JwtTokenFilter`: `UserRepository.findById` -> `UserQueryPort.findById` with a short-TTL in-process cache (e.g. Caffeine, 30 s) to keep the per-request cost bounded when routed remotely.
 - `UserService.register/update`, duplicate validators, `ProfileQueryService`, `UserQueryService`, `ArticleQueryService`/`CommentQueryService` profile composition switch to the ports.
