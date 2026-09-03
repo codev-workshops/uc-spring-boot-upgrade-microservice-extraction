@@ -1,0 +1,77 @@
+package io.spring.{{domain}}.application.client;
+
+import io.spring.{{domain}}.application.dto.{{Other}}Dto;
+import java.time.Duration;
+import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
+
+/** REST client for the {{Other}} domain (served by the monolith until it is extracted). */
+@Service
+public class {{Other}}ServiceClient {
+  private static final Logger log = LoggerFactory.getLogger({{Other}}ServiceClient.class);
+
+  private final RestTemplate restTemplate;
+  private final String baseUrl;
+
+  public {{Other}}ServiceClient(
+      RestTemplateBuilder builder,
+      @Value("${{{other}}.service.url}") String baseUrl,
+      @Value("${{{other}}.service.connect-timeout-ms:2000}") long connectTimeoutMs,
+      @Value("${{{other}}.service.read-timeout-ms:5000}") long readTimeoutMs) {
+    this.restTemplate =
+        builder
+            .setConnectTimeout(Duration.ofMillis(connectTimeoutMs))
+            .setReadTimeout(Duration.ofMillis(readTimeoutMs))
+            .build();
+    this.baseUrl = baseUrl;
+  }
+
+  /**
+   * Looks up a {{Other}} by slug. Returns empty on 404 or when the remote service is
+   * unreachable, so callers can fall back to a sensible default instead of failing with a 500.
+   */
+  public Optional<{{Other}}Dto> findBySlug(String slug, String authorizationHeader) {
+    HttpHeaders headers = new HttpHeaders();
+    if (authorizationHeader != null) {
+      headers.set(HttpHeaders.AUTHORIZATION, authorizationHeader);
+    }
+    try {
+      return Optional.ofNullable(
+          restTemplate
+              .exchange(
+                  baseUrl + "/{{other}}s/{slug}",
+                  HttpMethod.GET,
+                  new HttpEntity<>(headers),
+                  {{Other}}Dto.class,
+                  slug)
+              .getBody());
+    } catch (HttpClientErrorException e) {
+      if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
+        return Optional.empty();
+      }
+      throw new {{Other}}ServiceException(
+          "{{Other}} service rejected request for slug '" + slug + "': " + e.getStatusCode(), e);
+    } catch (RestClientException e) {
+      log.warn("{{Other}} service unavailable at {}: {}", baseUrl, e.getMessage());
+      return Optional.empty();
+    }
+  }
+
+  /** Domain-specific failure raised when the {{Other}} service returns an unexpected error. */
+  public static class {{Other}}ServiceException extends RuntimeException {
+    public {{Other}}ServiceException(String message, Throwable cause) {
+      super(message, cause);
+    }
+  }
+}
