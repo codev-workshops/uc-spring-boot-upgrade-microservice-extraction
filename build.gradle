@@ -68,7 +68,7 @@ contracts {
     contractsDslDir = file("${project.projectDir}/src/test/resources/contracts")
     // contracts/comment describes comment-service (the monolith is the consumer there); it is
     // verified by comment-service, not against the monolith.
-    excludedFiles = ['comment/**', 'tag/**', 'article/**']
+    excludedFiles = ['comment/**', 'tag/**', 'article/**', 'user/**']
 }
 
 configurations {

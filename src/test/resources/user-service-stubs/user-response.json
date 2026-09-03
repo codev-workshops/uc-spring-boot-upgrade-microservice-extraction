@@ -1,0 +1,10 @@
+{
+  "user": {
+    "id": "u1000000-0000-0000-0000-000000000001",
+    "username": "john",
+    "email": "john@jacob.com",
+    "bio": "bio",
+    "image": "img",
+    "extra": "ignored"
+  }
+}

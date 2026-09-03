@@ -7,6 +7,9 @@
     <select id="findById" resultType="io.spring.application.data.UserData">
         select * from users where id = #{id}
     </select>
+    <select id="findByEmail" resultType="io.spring.application.data.UserData">
+        select * from users where email = #{email}
+    </select>
     <select id="findByIds" resultType="io.spring.application.data.UserData">
         select * from users where id in
         <foreach collection="ids" item="id" open="(" separator="," close=")">

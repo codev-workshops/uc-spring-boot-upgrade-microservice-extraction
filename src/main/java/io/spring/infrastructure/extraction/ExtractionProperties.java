@@ -20,7 +20,7 @@ public class ExtractionProperties {
   private DomainRoute comment = new DomainRoute(URI.create("http://localhost:8082"));
   private DomainRoute tag = new DomainRoute(URI.create("http://localhost:8083"));
   private DomainRoute article = new DomainRoute(URI.create("http://localhost:8083"));
-  private DomainRoute user = new DomainRoute();
+  private DomainRoute user = new DomainRoute(URI.create("http://localhost:8084"));
 
   @Getter
   @Setter

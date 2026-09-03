@@ -1,0 +1,9 @@
+{
+  "user" : {
+    "bio" : "",
+    "email" : "reader@test.com",
+    "image" : "",
+    "token" : "<volatile>",
+    "username" : "reader"
+  }
+}

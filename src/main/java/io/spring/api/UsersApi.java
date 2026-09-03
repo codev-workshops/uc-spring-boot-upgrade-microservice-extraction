@@ -7,6 +7,8 @@ import io.spring.api.exception.InvalidAuthenticationException;
 import io.spring.application.UserQueryService;
 import io.spring.application.data.UserData;
 import io.spring.application.data.UserWithToken;
+import io.spring.application.user.CredentialsPort;
+import io.spring.application.user.LoginService;
 import io.spring.application.user.RegisterParam;
 import io.spring.application.user.UserService;
 import io.spring.core.service.JwtService;
@@ -21,6 +23,7 @@ import javax.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -35,6 +38,7 @@ public class UsersApi {
   private PasswordEncoder passwordEncoder;
   private JwtService jwtService;
   private UserService userService;
+  private ObjectProvider<LoginService> loginService;
 
   @RequestMapping(path = "/users", method = POST)
   public ResponseEntity createUser(@Valid @RequestBody RegisterParam registerParam) {
@@ -46,15 +50,19 @@ public class UsersApi {
 
   @RequestMapping(path = "/users/login", method = POST)
   public ResponseEntity userLogin(@Valid @RequestBody LoginParam loginParam) {
-    Optional<User> optional = userRepository.findByEmail(loginParam.getEmail());
-    if (optional.isPresent()
-        && passwordEncoder.matches(loginParam.getPassword(), optional.get().getPassword())) {
+    Optional<User> optional = loginService().login(loginParam.getEmail(), loginParam.getPassword());
+    if (optional.isPresent()) {
       UserData userData = userQueryService.findById(optional.get().getId()).get();
       return ResponseEntity.ok(
           userResponse(new UserWithToken(userData, jwtService.toToken(optional.get()))));
     } else {
       throw new InvalidAuthenticationException();
     }
+  }
+
+  private LoginService loginService() {
+    return loginService.getIfAvailable(
+        () -> new LoginService(userRepository, passwordEncoder, (CredentialsPort) null));
   }
 
   private Map<String, Object> userResponse(UserWithToken userWithToken) {

@@ -1,0 +1,18 @@
+{
+  "users": [
+    {
+      "id": "u1000000-0000-0000-0000-000000000001",
+      "username": "john",
+      "email": "john@jacob.com",
+      "bio": "bio",
+      "image": "img"
+    },
+    {
+      "id": "u2000000-0000-0000-0000-000000000002",
+      "username": "jane",
+      "email": "jane@jacob.com",
+      "bio": "",
+      "image": ""
+    }
+  ]
+}

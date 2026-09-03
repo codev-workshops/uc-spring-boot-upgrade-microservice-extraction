@@ -14,6 +14,8 @@ import io.spring.application.data.ProfileData;
 import io.spring.application.data.UserData;
 import io.spring.application.favorite.FavoriteQueryPort;
 import io.spring.application.tag.TagQueryPort;
+import io.spring.application.user.FollowPort;
+import io.spring.application.user.UserQueryPort;
 import io.spring.core.user.User;
 import io.spring.infrastructure.mybatis.readservice.ArticleReadService;
 import io.spring.infrastructure.mybatis.readservice.UserReadService;
@@ -47,6 +49,8 @@ public class ArticleQueryService {
   private final UserReadService userReadService;
   private final TagQueryPort tagQueryPort;
   private final ArticleQueryPort articleQueryPort;
+  private final UserQueryPort userQueryPort;
+  private final FollowPort followPort;
 
   @Autowired
   public ArticleQueryService(
@@ -55,14 +59,18 @@ public class ArticleQueryService {
       FavoriteQueryPort favoriteQueryPort,
       UserReadService userReadService,
       TagQueryPort tagQueryPort,
-      ObjectProvider<ArticleQueryPort> articleQueryPort) {
+      ObjectProvider<ArticleQueryPort> articleQueryPort,
+      ObjectProvider<UserQueryPort> userQueryPort,
+      ObjectProvider<FollowPort> followPort) {
     this(
         articleReadService,
         userRelationshipQueryService,
         favoriteQueryPort,
         userReadService,
         tagQueryPort,
-        articleQueryPort.getIfAvailable());
+        articleQueryPort.getIfAvailable(),
+        userQueryPort.getIfAvailable(),
+        followPort.getIfAvailable());
   }
 
   public ArticleQueryService(
@@ -72,12 +80,34 @@ public class ArticleQueryService {
       UserReadService userReadService,
       TagQueryPort tagQueryPort,
       ArticleQueryPort articleQueryPort) {
+    this(
+        articleReadService,
+        userRelationshipQueryService,
+        favoriteQueryPort,
+        userReadService,
+        tagQueryPort,
+        articleQueryPort,
+        null,
+        null);
+  }
+
+  public ArticleQueryService(
+      ArticleReadService articleReadService,
+      UserRelationshipQueryService userRelationshipQueryService,
+      FavoriteQueryPort favoriteQueryPort,
+      UserReadService userReadService,
+      TagQueryPort tagQueryPort,
+      ArticleQueryPort articleQueryPort,
+      UserQueryPort userQueryPort,
+      FollowPort followPort) {
     this.articleReadService = articleReadService;
     this.userRelationshipQueryService = userRelationshipQueryService;
     this.favoriteQueryPort = favoriteQueryPort;
     this.userReadService = userReadService;
     this.tagQueryPort = tagQueryPort;
     this.articleQueryPort = articleQueryPort;
+    this.userQueryPort = userQueryPort;
+    this.followPort = followPort;
   }
 
   public ArticleQueryService(
@@ -183,7 +213,7 @@ public class ArticleQueryService {
 
   public CursorPager<ArticleData> findUserFeedWithCursor(
       User user, CursorPageParameter<DateTime> page) {
-    List<String> followdUsers = userRelationshipQueryService.followedUsers(user.getId());
+    List<String> followdUsers = followedUsers(user.getId());
     if (followdUsers.size() == 0) {
       return new CursorPager<>(new ArrayList<>(), page.getDirection(), false);
     } else {
@@ -237,7 +267,7 @@ public class ArticleQueryService {
   }
 
   public ArticleDataList findUserFeed(User user, Page page) {
-    List<String> followdUsers = userRelationshipQueryService.followedUsers(user.getId());
+    List<String> followdUsers = followedUsers(user.getId());
     if (followdUsers.size() == 0) {
       return new ArticleDataList(new ArrayList<>(), 0);
     } else if (routeArticleThroughPort()) {
@@ -277,7 +307,7 @@ public class ArticleQueryService {
   private PortFilter resolvePortFilter(String author, String favoritedBy) {
     String authorId = null;
     if (author != null) {
-      UserData user = userReadService.findByUsername(author);
+      UserData user = userByUsername(author);
       if (user == null) {
         return new PortFilter(null, null, true);
       }
@@ -358,8 +388,7 @@ public class ArticleQueryService {
     }
     Map<String, UserData> users = new HashMap<>();
     for (UserData user :
-        userReadService.findByIds(
-            rows.stream().map(ArticleRow::getUserId).distinct().collect(toList()))) {
+        usersByIds(rows.stream().map(ArticleRow::getUserId).distinct().collect(toList()))) {
       users.put(user.getId(), user);
     }
     for (ArticleRow row : rows) {
@@ -458,7 +487,7 @@ public class ArticleQueryService {
   }
 
   private List<String> favoritedArticleIds(String username) {
-    UserData user = userReadService.findByUsername(username);
+    UserData user = userByUsername(username);
     if (user == null) {
       return new ArrayList<>();
     }
@@ -476,7 +505,7 @@ public class ArticleQueryService {
 
   private void setIsFollowingAuthor(List<ArticleData> articles, User currentUser) {
     Set<String> followingAuthors =
-        userRelationshipQueryService.followingAuthors(
+        followingAuthors(
             currentUser.getId(),
             articles.stream()
                 .map(articleData1 -> articleData1.getProfileData().getId())
@@ -521,8 +550,49 @@ public class ArticleQueryService {
     articleData.setFavoritesCount(favoriteQueryPort.articleFavoriteCount(id));
     articleData
         .getProfileData()
-        .setFollowing(
-            userRelationshipQueryService.isUserFollowing(
-                user.getId(), articleData.getProfileData().getId()));
+        .setFollowing(isFollowing(user.getId(), articleData.getProfileData().getId()));
+  }
+
+  private boolean routeUserThroughPort() {
+    return userQueryPort != null && userQueryPort.ownsUserReads();
+  }
+
+  private boolean routeFollowThroughPort() {
+    return followPort != null && followPort.ownsFollowReads();
+  }
+
+  private UserData userByUsername(String username) {
+    if (routeUserThroughPort()) {
+      return userQueryPort.findByUsername(username).orElse(null);
+    }
+    return userReadService.findByUsername(username);
+  }
+
+  private List<UserData> usersByIds(List<String> ids) {
+    if (routeUserThroughPort()) {
+      return userQueryPort.findByIds(ids);
+    }
+    return userReadService.findByIds(ids);
+  }
+
+  private boolean isFollowing(String userId, String targetId) {
+    if (routeFollowThroughPort()) {
+      return followPort.isFollowing(userId, targetId);
+    }
+    return userRelationshipQueryService.isUserFollowing(userId, targetId);
+  }
+
+  private Set<String> followingAuthors(String userId, List<String> ids) {
+    if (routeFollowThroughPort()) {
+      return followPort.followingAuthors(userId, ids);
+    }
+    return userRelationshipQueryService.followingAuthors(userId, ids);
+  }
+
+  private List<String> followedUsers(String userId) {
+    if (routeFollowThroughPort()) {
+      return followPort.followedUsers(userId);
+    }
+    return userRelationshipQueryService.followedUsers(userId);
   }
 }
