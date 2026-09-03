@@ -478,7 +478,7 @@ class CommentSyncTest {
         run(
             "reconcile",
             "--domain",
-            "user",
+            "profile",
             "--source",
             src.toString(),
             "--target",
