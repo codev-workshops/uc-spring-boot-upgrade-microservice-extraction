@@ -13,6 +13,11 @@ import java.util.stream.Stream;
  * When it does not — {@code article_tags(article_id, tag_id)} has no constraint at all — {@code
  * INSERT OR IGNORE} would duplicate rows, so inserts are guarded by a {@code NOT EXISTS} check
  * instead and duplicate rows are reported rather than multiplied.
+ *
+ * <p>{@link #uniqueColumns} lists payload columns that SQLite also keeps unique ({@code
+ * articles.slug}). A row whose key is absent on the other side but whose unique value is held there
+ * by a <em>different</em> key can never be inserted; it is detected and reported as a conflict
+ * instead of being silently swallowed by {@code INSERT OR IGNORE}.
  */
 public final class SyncTable {
 
@@ -23,18 +28,30 @@ public final class SyncTable {
   public final List<String> keyJsonNames;
 
   public final boolean uniqueKey;
+  /** Payload columns with their own UNIQUE constraint (subset of {@link #payloadColumns}). */
+  public final List<String> uniqueColumns;
 
   private SyncTable(
       String table,
       List<String> keyColumns,
       List<String> payloadColumns,
       List<String> keyJsonNames,
-      boolean uniqueKey) {
+      boolean uniqueKey,
+      List<String> uniqueColumns) {
     this.table = table;
     this.keyColumns = keyColumns;
     this.payloadColumns = payloadColumns;
     this.keyJsonNames = keyJsonNames;
     this.uniqueKey = uniqueKey;
+    this.uniqueColumns = uniqueColumns;
+    for (String u : uniqueColumns) {
+      if (!payloadColumns.contains(u)) {
+        throw new IllegalArgumentException("unique column " + u + " is not a payload column");
+      }
+    }
+    if (!uniqueColumns.isEmpty() && keyColumns.size() != 1) {
+      throw new IllegalArgumentException("unique columns need a single-column key: " + table);
+    }
   }
 
   /** A table whose natural key is enforced by SQLite. */
@@ -43,13 +60,36 @@ public final class SyncTable {
       List<String> keyColumns,
       List<String> payloadColumns,
       List<String> keyJsonNames) {
-    return new SyncTable(table, keyColumns, payloadColumns, keyJsonNames, true);
+    return new SyncTable(table, keyColumns, payloadColumns, keyJsonNames, true, List.of());
+  }
+
+  /** A keyed table whose payload also carries UNIQUE columns (e.g. {@code articles.slug}). */
+  public static SyncTable keyed(
+      String table,
+      List<String> keyColumns,
+      List<String> payloadColumns,
+      List<String> keyJsonNames,
+      List<String> uniqueColumns) {
+    return new SyncTable(table, keyColumns, payloadColumns, keyJsonNames, true, uniqueColumns);
   }
 
   /** A table with no unique constraint on its natural key; inserts check for the key first. */
   public static SyncTable unconstrained(
       String table, List<String> keyColumns, List<String> keyJsonNames) {
-    return new SyncTable(table, keyColumns, List.of(), keyJsonNames, false);
+    return new SyncTable(table, keyColumns, List.of(), keyJsonNames, false, List.of());
+  }
+
+  public boolean hasUniqueColumns() {
+    return !uniqueColumns.isEmpty();
+  }
+
+  /** Index of {@code column} in {@link #payloadColumns}. */
+  public int payloadIndex(String column) {
+    int i = payloadColumns.indexOf(column);
+    if (i < 0) {
+      throw new IllegalArgumentException(column + " is not a payload column of " + table);
+    }
+    return i;
   }
 
   public List<String> allColumns() {
@@ -120,6 +160,15 @@ public final class SyncTable {
         + " where "
         + keyWhere()
         + ")";
+  }
+
+  /** The key of the row holding a given value in a unique column, if any. */
+  String selectKeyByColumn(String column) {
+    return "select " + keyList() + " from " + table + " where " + column + " = ?";
+  }
+
+  String existsByKey() {
+    return "select 1 from " + table + " where " + keyWhere();
   }
 
   private String keyWhere() {
