@@ -17,6 +17,8 @@ spotless {
         target project.fileTree(project.rootDir) {
             include '**/*.java'
             exclude 'build/generated/**/*.*', 'build/generated-examples/**/*.*', 'build/generated-test-sources/**/*.*'
+            // independent Gradle projects with their own Spotless config
+            exclude 'favorite-service/**', 'tools/**'
         }
         googleJavaFormat()
     }
