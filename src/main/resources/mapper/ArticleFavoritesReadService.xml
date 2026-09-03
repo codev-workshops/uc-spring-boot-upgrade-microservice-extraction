@@ -27,4 +27,7 @@
         </foreach>
         and AF.user_id = #{currentUser.id}
     </select>
+    <select id="articleIdsFavoritedBy" resultType="java.lang.String">
+        select article_id from article_favorites where user_id = #{userId}
+    </select>
 </mapper>
