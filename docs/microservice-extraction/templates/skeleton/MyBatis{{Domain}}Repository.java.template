@@ -1,0 +1,34 @@
+package io.spring.{{domain}}.infrastructure.repository;
+
+import io.spring.{{domain}}.core.{{Domain}};
+import io.spring.{{domain}}.core.{{Domain}}Repository;
+import io.spring.{{domain}}.infrastructure.mybatis.mapper.{{Domain}}Mapper;
+import java.util.Optional;
+import org.springframework.stereotype.Repository;
+
+/** Mirrors io.spring.infrastructure.repository.MyBatisArticleFavoriteRepository in the monolith. */
+@Repository
+public class MyBatis{{Domain}}Repository implements {{Domain}}Repository {
+  private final {{Domain}}Mapper mapper;
+
+  public MyBatis{{Domain}}Repository({{Domain}}Mapper mapper) {
+    this.mapper = mapper;
+  }
+
+  @Override
+  public void save({{Domain}} favorite) {
+    if (mapper.find(favorite.getArticleId(), favorite.getUserId()) == null) {
+      mapper.insert(favorite);
+    }
+  }
+
+  @Override
+  public Optional<{{Domain}}> find(String articleId, String userId) {
+    return Optional.ofNullable(mapper.find(articleId, userId));
+  }
+
+  @Override
+  public void remove({{Domain}} favorite) {
+    mapper.delete(favorite);
+  }
+}
