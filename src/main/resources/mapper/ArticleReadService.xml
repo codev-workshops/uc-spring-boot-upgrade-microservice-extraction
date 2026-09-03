@@ -154,7 +154,8 @@
         limit #{page.queryLimit}
     </select>
 
-    <!-- favoritedBy filter resolved to an id list (extracted favorite route); no article_favorites join -->
+    <!-- favoritedBy and/or tag filter resolved to an id list (extracted favorite / tag route);
+         the article_favorites join is only added when favoritedBy is still a SQL filter -->
     <sql id="selectArticleIdsNoFavorites">
         select
         DISTINCT(A.id) articleId, A.created_at
@@ -163,6 +164,10 @@
         left join article_tags AT on A.id = AT.article_id
         left join tags T on T.id = AT.tag_id
         left join users AU on AU.id = A.user_id
+        <if test="favoritedBy != null">
+            left join article_favorites AF on AF.article_id = A.id
+            left join users AFU on AFU.id = AF.user_id
+        </if>
     </sql>
     <sql id="tagAuthorIdsFilter">
         <if test="tag != null">
@@ -170,6 +175,9 @@
         </if>
         <if test="author != null">
             AND AU.username = #{author}
+        </if>
+        <if test="favoritedBy != null">
+            AND AFU.username = #{favoritedBy}
         </if>
         AND A.id in
         <foreach collection="articleIds" item="id" open="(" separator="," close=")">
@@ -192,6 +200,10 @@
         left join article_tags AT on A.id = AT.article_id
         left join tags T on T.id = AT.tag_id
         left join users AU on AU.id = A.user_id
+        <if test="favoritedBy != null">
+            left join article_favorites AF on AF.article_id = A.id
+            left join users AFU on AFU.id = AF.user_id
+        </if>
         <where>
             <include refid="tagAuthorIdsFilter" />
         </where>
