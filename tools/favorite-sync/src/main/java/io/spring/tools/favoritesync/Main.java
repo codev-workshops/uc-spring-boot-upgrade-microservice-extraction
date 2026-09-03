@@ -11,14 +11,17 @@ import java.util.Map;
  * favorite-sync CLI.
  *
  * <pre>
- * favorite-sync backfill         --source dev.db --target favorite.db [--chunk 5000]
- * favorite-sync reverse-backfill --source dev.db --target favorite.db [--chunk 5000]
- * favorite-sync reconcile        --source dev.db --target favorite.db [--report out.json]
+ * favorite-sync backfill         [--domain favorite|comment] --source dev.db --target favorite.db [--chunk 5000]
+ * favorite-sync reverse-backfill [--domain favorite|comment] --source dev.db --target favorite.db [--chunk 5000]
+ * favorite-sync reconcile        [--domain favorite|comment] --source dev.db --target favorite.db [--report out.json]
  *                                [--repair none|to-target|to-source] [--delete-extras]
  *                                [--authoritative monolith|service] [--max-repair N]
  * </pre>
  *
- * Exit codes: 0 success / zero drift; 1 drift remains (report-only or after repair); 2 usage or
+ * {@code --domain} defaults to {@code favorite} ({@code article_favorites}); {@code comment} works
+ * on the {@code comments} table keyed by {@code id}.
+ *
+ * <p>Exit codes: 0 success / zero drift; 1 drift remains (report-only or after repair); 2 usage or
  * runtime error.
  */
 public final class Main {
@@ -65,6 +68,7 @@ public final class Main {
 
   private static int backfill(Map<String, String> opts, boolean reverse, PrintStream out)
       throws SQLException {
+    Domain domain = domain(opts);
     Path source = required(opts, "source");
     Path target = required(opts, "target");
     int chunk = intOption(opts, "chunk", 5000);
@@ -74,12 +78,13 @@ public final class Main {
       source = target;
       target = swap;
     }
-    new Backfill(source, target, chunk, out).run();
+    new Backfill(domain, source, target, chunk, out).run();
     return EXIT_OK;
   }
 
   private static int reconcile(Map<String, String> opts, PrintStream out) throws SQLException {
     Reconcile.Options o = new Reconcile.Options();
+    o.domain = domain(opts);
     o.source = required(opts, "source");
     o.target = required(opts, "target");
     o.report = opts.containsKey("report") ? Paths.get(opts.get("report")) : null;
@@ -97,6 +102,10 @@ public final class Main {
     }
     Reconcile.Outcome outcome = new Reconcile(o, out).run();
     return outcome.remainingDrift() == 0 ? EXIT_OK : EXIT_DRIFT;
+  }
+
+  private static Domain domain(Map<String, String> opts) {
+    return Domain.parse(opts.getOrDefault("domain", Domain.FAVORITE.domainName));
   }
 
   private static Path required(Map<String, String> opts, String name) {
@@ -140,7 +149,9 @@ public final class Main {
   }
 
   private static void usage(PrintStream out) {
-    out.println("favorite-sync - backfill / reconcile / rollback tooling for article_favorites");
+    out.println(
+        "favorite-sync - backfill / reconcile / rollback tooling for article_favorites and"
+            + " comments");
     out.println();
     out.println("  backfill         --source dev.db --target favorite.db [--chunk 5000]");
     out.println("  reverse-backfill --source dev.db --target favorite.db [--chunk 5000]");
@@ -148,6 +159,10 @@ public final class Main {
     out.println("  reconcile        --source dev.db --target favorite.db [--report out.json]");
     out.println("                   [--repair none|to-target|to-source] [--delete-extras]");
     out.println("                   [--authoritative monolith|service] [--max-repair N]");
+    out.println();
+    out.println("  every command accepts --domain favorite|comment (default favorite):");
+    out.println("    favorite -> table article_favorites, key (article_id, user_id)");
+    out.println("    comment  -> table comments, key id, payload compared for 'diverged'");
     out.println();
     out.println("exit codes: 0 ok / zero drift, 1 drift remains, 2 error");
   }
