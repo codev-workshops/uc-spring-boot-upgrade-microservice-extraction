@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="io.spring.article.infrastructure.mybatis.readservice.TagReadService">
+    <select id="all" resultType="string">
+        select name from tags
+    </select>
+    <select id="findArticleTags" resultType="io.spring.article.application.data.ArticleTagRow">
+        select AT.article_id articleId, T.name tagName
+        from article_tags AT
+        join tags T on T.id = AT.tag_id
+        where AT.article_id in
+        <foreach collection="articleIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        order by AT.rowid
+    </select>
+    <select id="findArticleIdsByTagName" resultType="string">
+        select AT.article_id
+        from article_tags AT
+        join tags T on T.id = AT.tag_id
+        where T.name = #{name}
+        group by AT.article_id
+        order by min(AT.rowid)
+    </select>
+</mapper>
