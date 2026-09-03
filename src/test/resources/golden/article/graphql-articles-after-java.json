@@ -1,0 +1,51 @@
+{
+  "data" : {
+    "articles" : {
+      "edges" : [ {
+        "cursor" : "<volatile>",
+        "node" : {
+          "author" : {
+            "bio" : "bio",
+            "following" : true,
+            "image" : "img",
+            "username" : "author"
+          },
+          "body" : "body",
+          "createdAt" : "<volatile>",
+          "description" : "desc",
+          "favorited" : false,
+          "favoritesCount" : 0,
+          "slug" : "spring-article",
+          "tagList" : [ "spring" ],
+          "title" : "spring article",
+          "updatedAt" : "<volatile>"
+        }
+      }, {
+        "cursor" : "<volatile>",
+        "node" : {
+          "author" : {
+            "bio" : "bio",
+            "following" : true,
+            "image" : "img",
+            "username" : "author"
+          },
+          "body" : "body",
+          "createdAt" : "<volatile>",
+          "description" : "desc",
+          "favorited" : true,
+          "favoritesCount" : 1,
+          "slug" : "bare-article",
+          "tagList" : [ ],
+          "title" : "bare article",
+          "updatedAt" : "<volatile>"
+        }
+      } ],
+      "pageInfo" : {
+        "endCursor" : "1704067200000",
+        "hasNextPage" : false,
+        "hasPreviousPage" : false,
+        "startCursor" : "1704153600000"
+      }
+    }
+  }
+}

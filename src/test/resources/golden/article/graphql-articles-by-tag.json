@@ -1,0 +1,51 @@
+{
+  "data" : {
+    "articles" : {
+      "edges" : [ {
+        "cursor" : "<volatile>",
+        "node" : {
+          "author" : {
+            "bio" : "",
+            "following" : false,
+            "image" : "",
+            "username" : "other"
+          },
+          "body" : "body",
+          "createdAt" : "<volatile>",
+          "description" : "desc",
+          "favorited" : false,
+          "favoritesCount" : 0,
+          "slug" : "other-article",
+          "tagList" : [ "java" ],
+          "title" : "other article",
+          "updatedAt" : "<volatile>"
+        }
+      }, {
+        "cursor" : "<volatile>",
+        "node" : {
+          "author" : {
+            "bio" : "bio",
+            "following" : true,
+            "image" : "img",
+            "username" : "author"
+          },
+          "body" : "body",
+          "createdAt" : "<volatile>",
+          "description" : "desc",
+          "favorited" : true,
+          "favoritesCount" : 1,
+          "slug" : "java-article",
+          "tagList" : [ "java" ],
+          "title" : "java article",
+          "updatedAt" : "<volatile>"
+        }
+      } ],
+      "pageInfo" : {
+        "endCursor" : "1704240000000",
+        "hasNextPage" : false,
+        "hasPreviousPage" : false,
+        "startCursor" : "1704326400000"
+      }
+    }
+  }
+}

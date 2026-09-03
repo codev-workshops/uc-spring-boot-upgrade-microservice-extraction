@@ -1,0 +1,21 @@
+{
+  "article" : {
+    "author" : {
+      "bio" : "bio",
+      "following" : true,
+      "image" : "img",
+      "username" : "author"
+    },
+    "body" : "body",
+    "createdAt" : "<volatile>",
+    "cursor" : "<volatile>",
+    "description" : "desc",
+    "favorited" : true,
+    "favoritesCount" : 1,
+    "id" : "<uuid>",
+    "slug" : "java-article",
+    "tagList" : [ "java" ],
+    "title" : "java article",
+    "updatedAt" : "<volatile>"
+  }
+}
