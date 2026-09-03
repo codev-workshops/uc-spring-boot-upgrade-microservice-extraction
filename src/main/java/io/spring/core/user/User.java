@@ -26,6 +26,15 @@ public class User {
     this.image = image;
   }
 
+  public User(String id, String email, String username, String password, String bio, String image) {
+    this.id = id;
+    this.email = email;
+    this.username = username;
+    this.password = password;
+    this.bio = bio;
+    this.image = image;
+  }
+
   public void update(String email, String username, String password, String bio, String image) {
     if (!Util.isEmpty(email)) {
       this.email = email;

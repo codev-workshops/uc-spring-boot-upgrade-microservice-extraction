@@ -12,6 +12,8 @@ public interface UserReadService {
 
   UserData findById(@Param("id") String id);
 
+  UserData findByEmail(@Param("email") String email);
+
   /** Batched profile lookup; {@code ids} must not be empty. */
   List<UserData> findByIds(@Param("ids") List<String> ids);
 }

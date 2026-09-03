@@ -153,7 +153,7 @@ public final class Main {
   private static void usage(PrintStream out) {
     out.println(
         "favorite-sync - backfill / reconcile / rollback tooling for article_favorites,"
-            + " comments, tags and articles");
+            + " comments, tags, articles and users");
     out.println();
     out.println("  backfill         --source dev.db --target favorite.db [--chunk 5000]");
     out.println("  reverse-backfill --source dev.db --target favorite.db [--chunk 5000]");
@@ -163,7 +163,7 @@ public final class Main {
     out.println("                   [--authoritative monolith|service] [--max-repair N]");
     out.println();
     out.println(
-        "  every command accepts --domain favorite|comment|tag|article (default favorite):");
+        "  every command accepts --domain favorite|comment|tag|article|user (default favorite):");
     out.println("    favorite -> table article_favorites, key (article_id, user_id)");
     out.println("    comment  -> table comments, key id, payload compared for 'diverged'");
     out.println("    tag      -> tables tags (key id, payload name) then");
@@ -172,6 +172,10 @@ public final class Main {
     out.println(
         "                slug is UNIQUE: clashes with another id are reported as conflicts");
     out.println("                (tag tables are --domain tag; run tag before article)");
+    out.println("    user     -> tables users (key id, payload username/password/email/bio/image,");
+    out.println("                username and email UNIQUE -> conflicts; password hash compared");
+    out.println("                as stored and never printed) then follows (key (user_id,");
+    out.println("                follow_id), no unique constraint)");
     out.println();
     out.println("exit codes: 0 ok / zero drift, 1 drift remains or backfill conflicts, 2 error");
   }

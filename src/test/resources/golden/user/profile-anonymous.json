@@ -1,0 +1,8 @@
+{
+  "profile" : {
+    "bio" : "bio",
+    "following" : false,
+    "image" : "img",
+    "username" : "author"
+  }
+}

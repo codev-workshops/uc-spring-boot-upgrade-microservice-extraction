@@ -18,6 +18,10 @@ import java.util.stream.Stream;
  * articles.slug}). A row whose key is absent on the other side but whose unique value is held there
  * by a <em>different</em> key can never be inserted; it is detected and reported as a conflict
  * instead of being silently swallowed by {@code INSERT OR IGNORE}.
+ *
+ * <p>{@link #sensitiveColumns} lists payload columns whose value must never appear in a report or
+ * log line ({@code users.password}). They are compared and copied like any other column; only their
+ * rendering is redacted.
  */
 public final class SyncTable {
 
@@ -30,6 +34,8 @@ public final class SyncTable {
   public final boolean uniqueKey;
   /** Payload columns with their own UNIQUE constraint (subset of {@link #payloadColumns}). */
   public final List<String> uniqueColumns;
+  /** Payload columns whose values are redacted in every report and log line. */
+  public final List<String> sensitiveColumns;
 
   private SyncTable(
       String table,
@@ -37,16 +43,23 @@ public final class SyncTable {
       List<String> payloadColumns,
       List<String> keyJsonNames,
       boolean uniqueKey,
-      List<String> uniqueColumns) {
+      List<String> uniqueColumns,
+      List<String> sensitiveColumns) {
     this.table = table;
     this.keyColumns = keyColumns;
     this.payloadColumns = payloadColumns;
     this.keyJsonNames = keyJsonNames;
     this.uniqueKey = uniqueKey;
     this.uniqueColumns = uniqueColumns;
+    this.sensitiveColumns = sensitiveColumns;
     for (String u : uniqueColumns) {
       if (!payloadColumns.contains(u)) {
         throw new IllegalArgumentException("unique column " + u + " is not a payload column");
+      }
+    }
+    for (String s : sensitiveColumns) {
+      if (!payloadColumns.contains(s)) {
+        throw new IllegalArgumentException("sensitive column " + s + " is not a payload column");
       }
     }
     if (!uniqueColumns.isEmpty() && keyColumns.size() != 1) {
@@ -60,7 +73,8 @@ public final class SyncTable {
       List<String> keyColumns,
       List<String> payloadColumns,
       List<String> keyJsonNames) {
-    return new SyncTable(table, keyColumns, payloadColumns, keyJsonNames, true, List.of());
+    return new SyncTable(
+        table, keyColumns, payloadColumns, keyJsonNames, true, List.of(), List.of());
   }
 
   /** A keyed table whose payload also carries UNIQUE columns (e.g. {@code articles.slug}). */
@@ -70,17 +84,37 @@ public final class SyncTable {
       List<String> payloadColumns,
       List<String> keyJsonNames,
       List<String> uniqueColumns) {
-    return new SyncTable(table, keyColumns, payloadColumns, keyJsonNames, true, uniqueColumns);
+    return new SyncTable(
+        table, keyColumns, payloadColumns, keyJsonNames, true, uniqueColumns, List.of());
+  }
+
+  /**
+   * A keyed table with UNIQUE payload columns and payload columns that must be redacted in output
+   * (e.g. {@code users.password}).
+   */
+  public static SyncTable keyed(
+      String table,
+      List<String> keyColumns,
+      List<String> payloadColumns,
+      List<String> keyJsonNames,
+      List<String> uniqueColumns,
+      List<String> sensitiveColumns) {
+    return new SyncTable(
+        table, keyColumns, payloadColumns, keyJsonNames, true, uniqueColumns, sensitiveColumns);
   }
 
   /** A table with no unique constraint on its natural key; inserts check for the key first. */
   public static SyncTable unconstrained(
       String table, List<String> keyColumns, List<String> keyJsonNames) {
-    return new SyncTable(table, keyColumns, List.of(), keyJsonNames, false, List.of());
+    return new SyncTable(table, keyColumns, List.of(), keyJsonNames, false, List.of(), List.of());
   }
 
   public boolean hasUniqueColumns() {
     return !uniqueColumns.isEmpty();
+  }
+
+  public boolean isSensitive(String column) {
+    return sensitiveColumns.contains(column);
   }
 
   /** Index of {@code column} in {@link #payloadColumns}. */

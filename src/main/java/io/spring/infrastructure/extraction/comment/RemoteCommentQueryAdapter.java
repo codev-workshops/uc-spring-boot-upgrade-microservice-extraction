@@ -6,6 +6,7 @@ import io.spring.application.comment.dto.CommentRowDto;
 import io.spring.application.data.CommentData;
 import io.spring.application.data.ProfileData;
 import io.spring.application.data.UserData;
+import io.spring.application.user.UserQueryPort;
 import io.spring.infrastructure.mybatis.readservice.UserReadService;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -16,6 +17,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.joda.time.DateTime;
 import org.joda.time.format.ISODateTimeFormat;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -29,10 +32,25 @@ import org.springframework.stereotype.Component;
 public class RemoteCommentQueryAdapter implements CommentQueryPort {
   private final CommentServiceClient client;
   private final UserReadService userReadService;
+  private final UserQueryPort userQueryPort;
+
+  @Autowired
+  public RemoteCommentQueryAdapter(
+      CommentServiceClient client,
+      UserReadService userReadService,
+      ObjectProvider<UserQueryPort> userQueryPort) {
+    this(client, userReadService, userQueryPort.getIfAvailable());
+  }
 
   public RemoteCommentQueryAdapter(CommentServiceClient client, UserReadService userReadService) {
+    this(client, userReadService, (UserQueryPort) null);
+  }
+
+  public RemoteCommentQueryAdapter(
+      CommentServiceClient client, UserReadService userReadService, UserQueryPort userQueryPort) {
     this.client = client;
     this.userReadService = userReadService;
+    this.userQueryPort = userQueryPort;
   }
 
   @Override
@@ -71,7 +89,11 @@ public class RemoteCommentQueryAdapter implements CommentQueryPort {
     List<String> userIds =
         rows.stream().map(CommentRowDto::getUserId).distinct().collect(Collectors.toList());
     Map<String, UserData> users = new HashMap<>();
-    for (UserData user : userReadService.findByIds(userIds)) {
+    List<UserData> authors =
+        userQueryPort != null && userQueryPort.ownsUserReads()
+            ? userQueryPort.findByIds(userIds)
+            : userReadService.findByIds(userIds);
+    for (UserData user : authors) {
       users.put(user.getId(), user);
     }
     for (CommentRowDto row : rows) {
