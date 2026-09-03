@@ -1,0 +1,15 @@
+{
+  "comment" : {
+    "author" : {
+      "bio" : "",
+      "following" : false,
+      "image" : "",
+      "username" : "reader"
+    },
+    "body" : "hello",
+    "createdAt" : "<volatile>",
+    "cursor" : "<volatile>",
+    "id" : "<uuid>",
+    "updatedAt" : "<volatile>"
+  }
+}

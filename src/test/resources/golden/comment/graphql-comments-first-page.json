@@ -1,0 +1,29 @@
+{
+  "data" : {
+    "article" : {
+      "comments" : {
+        "edges" : [ {
+          "cursor" : "<volatile>",
+          "node" : {
+            "author" : {
+              "bio" : "bio",
+              "following" : false,
+              "image" : "img",
+              "username" : "author"
+            },
+            "body" : "newer",
+            "createdAt" : "<volatile>",
+            "id" : "<uuid>",
+            "updatedAt" : "<volatile>"
+          }
+        } ],
+        "pageInfo" : {
+          "endCursor" : "1704153600000",
+          "hasNextPage" : true,
+          "hasPreviousPage" : false,
+          "startCursor" : "1704153600000"
+        }
+      }
+    }
+  }
+}
