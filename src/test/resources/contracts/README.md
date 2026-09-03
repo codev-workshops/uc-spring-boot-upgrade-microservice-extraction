@@ -40,3 +40,7 @@ Favorite service (consumer) relies on when it calls the monolith.
   (phase-2-comment.md section 2.1) as the monolith's `CommentServiceClient` expects it. Excluded
   from producer verification here (`contracts { excludedFiles = ['comment/**'] }`); comment-service
   verifies them as its provider contracts. See `comment/README.md`.
+- `tag/*.groovy` — **consumer-side**. The Tag part of article-service's canonical internal API
+  (phase-3-tag.md section 2.1) as the monolith's `ArticleServiceClient` expects it. Excluded from
+  producer verification here (`excludedFiles = [..., 'tag/**']`); article-service verifies them as
+  its provider contracts. See `tag/README.md`.
