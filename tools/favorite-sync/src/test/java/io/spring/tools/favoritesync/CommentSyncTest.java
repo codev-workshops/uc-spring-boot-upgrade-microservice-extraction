@@ -478,12 +478,12 @@ class CommentSyncTest {
         run(
             "reconcile",
             "--domain",
-            "tag",
+            "article",
             "--source",
             src.toString(),
             "--target",
             dst.toString()));
-    assertTrue(errLog.toString().contains("--domain must be one of favorite|comment"));
+    assertTrue(errLog.toString().contains("--domain must be one of favorite|comment|tag"));
 
     assertEquals(
         Main.EXIT_ERROR, run("reconcile", "--source", src.toString(), "--target", dst.toString()));

@@ -11,15 +11,16 @@ import java.util.Map;
  * favorite-sync CLI.
  *
  * <pre>
- * favorite-sync backfill         [--domain favorite|comment] --source dev.db --target favorite.db [--chunk 5000]
- * favorite-sync reverse-backfill [--domain favorite|comment] --source dev.db --target favorite.db [--chunk 5000]
- * favorite-sync reconcile        [--domain favorite|comment] --source dev.db --target favorite.db [--report out.json]
+ * favorite-sync backfill         [--domain favorite|comment|tag] --source dev.db --target favorite.db [--chunk 5000]
+ * favorite-sync reverse-backfill [--domain favorite|comment|tag] --source dev.db --target favorite.db [--chunk 5000]
+ * favorite-sync reconcile        [--domain favorite|comment|tag] --source dev.db --target favorite.db [--report out.json]
  *                                [--repair none|to-target|to-source] [--delete-extras]
  *                                [--authoritative monolith|service] [--max-repair N]
  * </pre>
  *
  * {@code --domain} defaults to {@code favorite} ({@code article_favorites}); {@code comment} works
- * on the {@code comments} table keyed by {@code id}.
+ * on the {@code comments} table keyed by {@code id}; {@code tag} covers {@code tags} and then
+ * {@code article_tags} in a single run.
  *
  * <p>Exit codes: 0 success / zero drift; 1 drift remains (report-only or after repair); 2 usage or
  * runtime error.
@@ -150,8 +151,8 @@ public final class Main {
 
   private static void usage(PrintStream out) {
     out.println(
-        "favorite-sync - backfill / reconcile / rollback tooling for article_favorites and"
-            + " comments");
+        "favorite-sync - backfill / reconcile / rollback tooling for article_favorites,"
+            + " comments and tags");
     out.println();
     out.println("  backfill         --source dev.db --target favorite.db [--chunk 5000]");
     out.println("  reverse-backfill --source dev.db --target favorite.db [--chunk 5000]");
@@ -160,9 +161,11 @@ public final class Main {
     out.println("                   [--repair none|to-target|to-source] [--delete-extras]");
     out.println("                   [--authoritative monolith|service] [--max-repair N]");
     out.println();
-    out.println("  every command accepts --domain favorite|comment (default favorite):");
+    out.println("  every command accepts --domain favorite|comment|tag (default favorite):");
     out.println("    favorite -> table article_favorites, key (article_id, user_id)");
     out.println("    comment  -> table comments, key id, payload compared for 'diverged'");
+    out.println("    tag      -> tables tags (key id, payload name) then");
+    out.println("                article_tags (key (article_id, tag_id), no unique constraint)");
     out.println();
     out.println("exit codes: 0 ok / zero drift, 1 drift remains, 2 error");
   }
