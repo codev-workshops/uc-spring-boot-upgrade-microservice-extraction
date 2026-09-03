@@ -1,0 +1,58 @@
+{
+  "articles" : [ {
+    "author" : {
+      "bio" : "bio",
+      "following" : true,
+      "image" : "img",
+      "username" : "author"
+    },
+    "body" : "body",
+    "createdAt" : "<volatile>",
+    "cursor" : "<volatile>",
+    "description" : "desc",
+    "favorited" : true,
+    "favoritesCount" : 1,
+    "id" : "<uuid>",
+    "slug" : "java-article",
+    "tagList" : [ "java" ],
+    "title" : "java article",
+    "updatedAt" : "<volatile>"
+  }, {
+    "author" : {
+      "bio" : "bio",
+      "following" : true,
+      "image" : "img",
+      "username" : "author"
+    },
+    "body" : "body",
+    "createdAt" : "<volatile>",
+    "cursor" : "<volatile>",
+    "description" : "desc",
+    "favorited" : false,
+    "favoritesCount" : 0,
+    "id" : "<uuid>",
+    "slug" : "spring-article",
+    "tagList" : [ "spring" ],
+    "title" : "spring article",
+    "updatedAt" : "<volatile>"
+  }, {
+    "author" : {
+      "bio" : "bio",
+      "following" : true,
+      "image" : "img",
+      "username" : "author"
+    },
+    "body" : "body",
+    "createdAt" : "<volatile>",
+    "cursor" : "<volatile>",
+    "description" : "desc",
+    "favorited" : true,
+    "favoritesCount" : 1,
+    "id" : "<uuid>",
+    "slug" : "bare-article",
+    "tagList" : [ ],
+    "title" : "bare article",
+    "updatedAt" : "<volatile>"
+  } ],
+  "articlesCount" : 3
+}

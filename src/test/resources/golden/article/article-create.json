@@ -1,0 +1,21 @@
+{
+  "article" : {
+    "author" : {
+      "bio" : "",
+      "following" : false,
+      "image" : "",
+      "username" : "reader"
+    },
+    "body" : "b",
+    "createdAt" : "<volatile>",
+    "cursor" : "<volatile>",
+    "description" : "d",
+    "favorited" : false,
+    "favoritesCount" : 0,
+    "id" : "<uuid>",
+    "slug" : "created",
+    "tagList" : [ "java" ],
+    "title" : "created",
+    "updatedAt" : "<volatile>"
+  }
+}

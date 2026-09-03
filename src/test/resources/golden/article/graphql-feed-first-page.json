@@ -1,0 +1,32 @@
+{
+  "data" : {
+    "feed" : {
+      "edges" : [ {
+        "cursor" : "<volatile>",
+        "node" : {
+          "author" : {
+            "bio" : "bio",
+            "following" : true,
+            "image" : "img",
+            "username" : "author"
+          },
+          "body" : "body",
+          "createdAt" : "<volatile>",
+          "description" : "desc",
+          "favorited" : true,
+          "favoritesCount" : 1,
+          "slug" : "java-article",
+          "tagList" : [ "java" ],
+          "title" : "java article",
+          "updatedAt" : "<volatile>"
+        }
+      } ],
+      "pageInfo" : {
+        "endCursor" : "1704240000000",
+        "hasNextPage" : true,
+        "hasPreviousPage" : false,
+        "startCursor" : "1704240000000"
+      }
+    }
+  }
+}
