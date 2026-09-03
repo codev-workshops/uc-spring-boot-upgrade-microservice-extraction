@@ -1,6 +1,6 @@
 # Phase 2 — Comment extraction
 
-Status: **design, awaiting approval**. Starts only after Phase 1 is confirmed complete and this doc is approved.
+Status: **APPROVED — implementation in progress** (approved after Phase 1 completion; Phase 1 = PR #15).
 
 ## 1. Scope
 
