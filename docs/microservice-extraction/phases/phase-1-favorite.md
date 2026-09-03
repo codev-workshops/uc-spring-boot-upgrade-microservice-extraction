@@ -1,6 +1,6 @@
 # Phase 1 — Favorite extraction
 
-Status: **design, awaiting approval**. No implementation starts before explicit approval.
+Status: **APPROVED (2026-09-03) — implementation in progress**.
 
 ## 1. Scope
 
@@ -35,12 +35,20 @@ for every requested id (see contract in `00-golden-test-baseline.md`: `favorites
 - `src/main/resources/db/migration/V1__create_favorite_tables.sql` — `article_favorites` only;
   `V2__seed_favorites.sql` — favorite rows from monolith seed.
 - Packages `io.spring.favorite.{api,core,application,infrastructure}`.
-- Internal REST API (all responses wrapped, same error format as monolith):
-  - `GET  /internal/favorites/counts?articleIds=a,b,c` -> `{"counts":[{"articleId":"a","count":2}, ...]}` (one entry per requested id, `count=0` when none — matches the current LEFT JOIN semantics)
-  - `GET  /internal/favorites/users/{userId}?articleIds=...` -> `{"articleIds":[...]}`
-  - `GET  /internal/favorites/by-user/{userId}/article-ids` -> article IDs favorited by a user (for `favoritedBy`)
-  - `PUT  /internal/favorites/{articleId}/{userId}` (idempotent insert; 200 if exists) and `DELETE` (idempotent; 204)
-- JWT filter reusing the monolith `jwt.secret` so forwarded `Token <jwt>` headers validate.
+- Internal REST API — **canonical contract** (supersedes the sketch in `04-strangler-wiring-design.md` §3.1;
+  POST bodies are used for id batches to avoid URL-length limits). All responses are JSON; errors use the
+  monolith envelope `{"errors":{"body":["..."]}}` (422 invalid body, 401 missing/invalid token, 403 token subject != `userId`):
+
+  | Method / path | Request | Response | Auth |
+  |---|---|---|---|
+  | `POST /internal/favorites/counts` | `{"articleIds":["a","b"]}` | `200 {"counts":[{"articleId":"a","count":2},{"articleId":"b","count":0}]}` — exactly one entry per requested id, in request order, `0` when none; empty list -> `{"counts":[]}` | none |
+  | `POST /internal/favorites/query` | `{"userId":"u","articleIds":["a","b"]}` | `200 {"userId":"u","articleIds":["a"]}` — the favorited subset | none |
+  | `GET /internal/favorites/by-user/{userId}/article-ids` | — | `200 {"userId":"u","articleIds":[...]}` (for `favoritedBy`) | none |
+  | `PUT /internal/favorites/{articleId}/{userId}` | — | `200 {"articleId":"a","userId":"u","favorited":true}`; idempotent (`insert or ignore`) | `Authorization: Token <jwt>`, JWT subject (= monolith user id) must equal `{userId}` |
+  | `DELETE /internal/favorites/{articleId}/{userId}` | — | `204`; idempotent no-op when absent | same as PUT |
+  | `GET /actuator/health` | — | `200 {"status":"UP"}` | none |
+
+- JWT filter reusing the monolith `jwt.secret` / `jwt.sessionTime` so forwarded `Token <jwt>` headers validate (subject is the user id, see `DefaultJwtService`).
 
 ### 2.2 Monolith seam (per `04-strangler-wiring-design.md`)
 - `ExtractionProperties` (`extraction.favorite.enabled=false`, `extraction.favorite.read=monolith|extracted|shadow`, `extraction.favorite.write=monolith|extracted|dual-write`, `extraction.favorite.base-url`, timeouts, `fallback` — see `04-strangler-wiring-design.md` §1).
