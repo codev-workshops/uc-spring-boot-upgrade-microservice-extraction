@@ -23,8 +23,10 @@ Seed data: the `article_favorites` rows in `V2__seed_data.sql`.
 
 Note: `articlesFavoriteCount` and `userFavorites` currently `left join articles` — the service will
 own only `article_favorites`, so these queries are rewritten to operate on `article_favorites` alone
-(`select article_id, count(*) ... where article_id in (...) group by article_id`). Behaviour for
-IDs with zero favorites is preserved at the caller (see contract 4.3).
+(`select article_id, count(*) ... where article_id in (...) group by article_id`). Because the
+service no longer has the `articles` LEFT JOIN, the remote adapter must itself emit a `count=0` entry
+for every requested id (see contract in `00-golden-test-baseline.md`: `favoritesCount` is a primitive
+`int`, always `0` for an existing article, and `setFavoriteCount` NPEs when an id has no row).
 
 ## 2. Planned changes (exact)
 
@@ -34,14 +36,14 @@ IDs with zero favorites is preserved at the caller (see contract 4.3).
   `V2__seed_favorites.sql` — favorite rows from monolith seed.
 - Packages `io.spring.favorite.{api,core,application,infrastructure}`.
 - Internal REST API (all responses wrapped, same error format as monolith):
-  - `GET  /internal/favorites/counts?articleIds=a,b,c` -> `{"counts":[{"articleId":"a","count":2}, ...]}` (only IDs with count>0, mirroring the current left-join semantics)
+  - `GET  /internal/favorites/counts?articleIds=a,b,c` -> `{"counts":[{"articleId":"a","count":2}, ...]}` (one entry per requested id, `count=0` when none — matches the current LEFT JOIN semantics)
   - `GET  /internal/favorites/users/{userId}?articleIds=...` -> `{"articleIds":[...]}`
   - `GET  /internal/favorites/by-user/{userId}/article-ids` -> article IDs favorited by a user (for `favoritedBy`)
   - `PUT  /internal/favorites/{articleId}/{userId}` (idempotent insert; 200 if exists) and `DELETE` (idempotent; 204)
 - JWT filter reusing the monolith `jwt.secret` so forwarded `Token <jwt>` headers validate.
 
 ### 2.2 Monolith seam (per `04-strangler-wiring-design.md`)
-- `ExtractionProperties` (`extraction.favorite.enabled=false`, `extraction.favorite.dual-write=false`, `extraction.favorite.base-url`).
+- `ExtractionProperties` (`extraction.favorite.enabled=false`, `extraction.favorite.read=monolith|extracted|shadow`, `extraction.favorite.write=monolith|extracted|dual-write`, `extraction.favorite.base-url`, timeouts, `fallback` — see `04-strangler-wiring-design.md` §1).
 - Introduce interface `FavoriteQueryPort` with:
   - `MyBatisFavoriteQueryAdapter` (wraps existing `ArticleFavoritesReadService`, default)
   - `RemoteFavoriteQueryAdapter` -> `FavoriteServiceClient` (RestTemplate, 500 ms timeout) + DTOs `FavoriteCountDto`, `UserFavoritesDto` in `io.spring.application.favorite.dto`.
@@ -57,7 +59,7 @@ IDs with zero favorites is preserved at the caller (see contract 4.3).
   private void setFavoriteCount(List<ArticleData> articles) {
 -   List<ArticleFavoriteCount> counts = articleFavoritesReadService.articlesFavoriteCount(ids);
 +   List<ArticleFavoriteCount> counts = favoriteQueryPort.articlesFavoriteCount(ids);
-    ... // unchanged: countMap.get(id) may be null -> preserved
+    ... // unchanged: countMap.get(id) unboxes to int -> remote adapter must return a row per id
   }
 ```
 
@@ -70,10 +72,10 @@ monolith until cutover; they back the flag-OFF path and the authoritative store.
 | Risk | Mitigation |
 |------|-----------|
 | `favoritedBy` filter changes from one SQL query to id-list resolution; pagination/ordering must stay identical | parallel-run harness compares `GET /articles?favoritedBy=` envelopes (offset and cursor variants) |
-| `favoritesCount` null-vs-0 serialization contract in `setFavoriteCount` | golden edge-case test pins the exact JSON; remote adapter reproduces the same map semantics |
-| Service unavailable -> article listings degrade | client failure falls back to the local MyBatis adapter while dual-write keeps the local table authoritative (fallback is only removed at cutover) |
-| Double-favorite: PK violation on `insert` | service uses idempotent `insert or ignore`; monolith behaviour captured by Phase 0 test and preserved on the flag-OFF path |
-| SQLite `IN (...)` variable limit for large id batches | batch size capped at 500 in both adapters (Phase 0 test) |
+| `favoritesCount` is always `0`, never `null`, for an existing article; a missing count row NPEs | golden edge-case test pins the JSON (`ArticleFavoritesReadServiceTest`, `FavoriteQueryServiceTest`); remote adapter fills `0` for ids the service does not return |
+| Service unavailable -> article listings degrade | `extraction.favorite.fallback=monolith`: client failure falls back to the local MyBatis adapter while dual-write keeps the local table authoritative (fallback is only removed at cutover) |
+| Double-favorite: today idempotent only because `MyBatisArticleFavoriteRepository.save` reads before inserting; raw insert -> `UncategorizedSQLException` | service uses `insert or ignore`; API-level 200 contract preserved (Phase 0 `ArticleFavoriteApiEdgeCaseTest`) |
+| Empty id batch produces invalid `IN ()` SQL today; 600-id batches work | both adapters short-circuit empty lists and cap batches at 500 (Phase 0 test) |
 | N+1 / latency: each article page now needs 2 remote calls | both calls are batched per page (they already are), timeouts + metrics tagged `route=extracted` |
 | JWT forwarding | same secret; contract test for `Token` header acceptance |
 
@@ -81,7 +83,7 @@ monolith until cutover; they back the flag-OFF path and the authoritative store.
 
 1. **Golden tests** — all 27 baseline files (`00-golden-test-baseline.md`) pass with flag OFF and with flag ON (`ArticleFavoriteApiTest`, `ArticlesApiTest`, `ListArticleApiTest`, `ArticleQueryServiceTest`, `MyBatisArticleFavoriteRepositoryTest` are the critical ones).
 2. **Contract tests** (`01-contract-testing.md`) — consumer (monolith) contracts for the four internal endpoints above; provider verification runs in `favorite-service`.
-3. **Edge cases** (Phase 0 Favorite tests): idempotent double-favorite, unfavorite-when-not-favorited, favorite non-existent slug -> 404, null-vs-0 count, empty/large id batches, anonymous reads, `favoritedBy` filter.
+3. **Edge cases** (Phase 0 Favorite tests): idempotent double-favorite, unfavorite-when-not-favorited (200 no-op), favorite non-existent slug -> 404 on both verbs, `favoritesCount` always `0` not `null`, empty/large id batches, anonymous reads, `favoritedBy` filter.
 4. **Parallel run** (`02-parallel-run-harness.md`) — `FavoriteParallelRunTest` MONOLITH vs EXTRACTED for `GET /articles/{slug}`, `GET /articles?favoritedBy=`, `POST/DELETE /articles/{slug}/favorite`, GraphQL `favoriteArticle`.
 5. **Reconciliation** — zero drift between `article_favorites` in `dev.db` and `favorite.db` for N consecutive runs before cutover.
 6. Both `./gradlew build -x jacocoTestCoverageVerification` (monolith and service) green.
@@ -91,8 +93,8 @@ monolith until cutover; they back the flag-OFF path and the authoritative store.
 1. Create `favorite-service` from template; V1 migration; internal endpoints; provider contract tests. (No monolith change yet.)
 2. Backfill `article_favorites` from `dev.db` -> `favorite.db`; run reconciliation report.
 3. Monolith: add `ExtractionProperties`, ports, adapters, client (flag OFF). Golden tests green.
-4. Enable `dual-write=true` (writes go local then remote). Reconcile until zero drift.
-5. Enable `enabled=true` for reads (shadow/parallel-run first, then live). Monitor.
+4. `extraction.favorite.enabled=true`, `write=dual-write` (writes go local then remote). Reconcile until zero drift.
+5. `read=shadow` (parallel-run, mismatches metered), then `read=extracted`. Monitor.
 6. Cutover: service becomes authoritative for writes; monolith local write becomes the mirror.
 7. Decommission (later, separate approval): remove MyBatis favorite mapper + table from monolith.
 

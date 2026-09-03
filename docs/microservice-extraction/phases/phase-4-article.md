@@ -30,7 +30,7 @@ Owned data: `articles (id, user_id, slug UNIQUE, title, description, body, creat
 - `ArticleServiceClient` in the service? No — per AGENTS.md the *caller* owns the client: the service gets a `UserServiceClient` only if it needs user data (it does not; profile composition stays in the monolith façade).
 
 ### 2.2 Monolith seam
-- `extraction.article.{enabled,dual-write,base-url}`.
+- `extraction.article.{enabled,read,write,base-url}` (read: monolith|extracted|shadow; write: monolith|extracted|dual-write — see `04-strangler-wiring-design.md` §1.1).
 - `ArticleQueryPort` / `ArticleCommandPort` with `MyBatis`, `Remote`, `DualWrite` adapters.
 - `ArticleQueryService` becomes a composer: article rows (port) + author profiles (`UserReadService`, local) + `following` (local) + favorites (Phase 1 port) + tags (Phase 3 port). `ArticleData` JSON must be byte-identical.
 - `ArticleFavoriteApi`, `CommentsApi`, `ArticleMutation`, `CommentMutation`: `articleRepository.findBySlug(slug)` replaced by `ArticleLookupPort.findBySlug` returning a light `ArticleRef(id, userId, slug)` used for 404 and `AuthorizationService` checks (signature of `canWriteArticle(User, Article)` kept via an adapter or an overload — the Phase 0 unit tests pin behaviour).

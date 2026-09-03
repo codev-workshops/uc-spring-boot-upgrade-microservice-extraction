@@ -33,7 +33,7 @@ Owned data (Phase 3): `tags (id, name)`, `article_tags (article_id, tag_id)`. Se
   - `PUT /internal/articles/{articleId}/tags` `{"tagList":[...]}` (idempotent set; creates missing tags)
 
 ### 2.2 Monolith seam
-- `extraction.tag.{enabled,dual-write,base-url}`.
+- `extraction.tag.{enabled,read,write,base-url}` (read: monolith|extracted|shadow; write: monolith|extracted|dual-write — see `04-strangler-wiring-design.md` §1.1).
 - `TagQueryPort` (`MyBatis` / `Remote`) used by `TagsQueryService`.
 - `ArticleQueryService`: when tag flag ON, `tagList` is filled from the port after `findArticles` (mirrors how `favoritesCount` is filled) and the `tag=` filter is resolved to article ids; when OFF, existing SQL joins.
 - `ArticleCommandService`/`MyBatisArticleRepository.save`: `DualWriteTagCommand` mirrors the tag set to the service after the local transaction commits (`ArticleRepositoryTransactionTest` covers the local transactional behaviour that must not change).
