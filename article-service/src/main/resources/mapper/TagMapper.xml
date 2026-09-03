@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="io.spring.article.infrastructure.mybatis.mapper.TagMapper">
+    <select id="findByName" resultType="io.spring.article.core.tag.Tag">
+        select id, name from tags where name = #{name} order by rowid limit 1
+    </select>
+    <insert id="insert">
+        insert into tags (id, name) values (#{tag.id}, #{tag.name})
+    </insert>
+    <select id="countRelation" resultType="int">
+        select count(*) from article_tags where article_id = #{articleId} and tag_id = #{tagId}
+    </select>
+    <insert id="insertRelation">
+        insert into article_tags (article_id, tag_id) values (#{articleId}, #{tagId})
+    </insert>
+    <select id="findTagNames" resultType="string">
+        select T.name
+        from article_tags AT
+        join tags T on T.id = AT.tag_id
+        where AT.article_id = #{articleId}
+        order by AT.rowid
+    </select>
+</mapper>
