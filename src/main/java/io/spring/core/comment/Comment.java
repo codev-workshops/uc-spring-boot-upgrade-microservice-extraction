@@ -23,4 +23,15 @@ public class Comment {
     this.articleId = articleId;
     this.createdAt = new DateTime();
   }
+
+  /**
+   * Rehydrates a comment stored elsewhere (e.g. a comment-service row) without generating an id.
+   */
+  public Comment(String id, String body, String userId, String articleId, DateTime createdAt) {
+    this.id = id;
+    this.body = body;
+    this.userId = userId;
+    this.articleId = articleId;
+    this.createdAt = createdAt;
+  }
 }

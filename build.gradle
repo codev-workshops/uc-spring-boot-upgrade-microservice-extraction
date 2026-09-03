@@ -66,6 +66,9 @@ contracts {
     testMode = 'MOCKMVC'
     baseClassForTests = 'io.spring.contract.FavoriteContractBase'
     contractsDslDir = file("${project.projectDir}/src/test/resources/contracts")
+    // contracts/comment describes comment-service (the monolith is the consumer there); it is
+    // verified by comment-service, not against the monolith.
+    excludedFiles = ['comment/**']
 }
 
 configurations {
