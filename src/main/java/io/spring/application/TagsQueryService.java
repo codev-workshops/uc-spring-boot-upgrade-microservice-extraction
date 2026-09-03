@@ -1,6 +1,6 @@
 package io.spring.application;
 
-import io.spring.infrastructure.mybatis.readservice.TagReadService;
+import io.spring.application.tag.TagQueryPort;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -8,9 +8,9 @@ import org.springframework.stereotype.Service;
 @Service
 @AllArgsConstructor
 public class TagsQueryService {
-  private TagReadService tagReadService;
+  private TagQueryPort tagQueryPort;
 
   public List<String> allTags() {
-    return tagReadService.all();
+    return tagQueryPort.allTags();
   }
 }
