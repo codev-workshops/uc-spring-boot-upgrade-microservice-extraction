@@ -1,8 +1,11 @@
 package io.spring.article.api.exception;
 
+import static org.springframework.http.HttpStatus.FORBIDDEN;
+import static org.springframework.http.HttpStatus.NOT_FOUND;
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 import static org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY;
 
+import java.util.Collections;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +18,30 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 @RestControllerAdvice
 public class CustomizeExceptionHandler extends ResponseEntityExceptionHandler {
+
+  @ExceptionHandler(InvalidRequestException.class)
+  public ResponseEntity<Object> handleInvalidRequest(InvalidRequestException e) {
+    return ResponseEntity.status(UNPROCESSABLE_ENTITY).body(ErrorResource.body(e.getMessage()));
+  }
+
+  @ExceptionHandler(DuplicatedArticleException.class)
+  public ResponseEntity<Object> handleDuplicatedArticle(DuplicatedArticleException e) {
+    return ResponseEntity.status(UNPROCESSABLE_ENTITY)
+        .body(
+            Collections.singletonMap(
+                "errors",
+                Collections.singletonMap("title", Collections.singletonList(e.getMessage()))));
+  }
+
+  @ExceptionHandler(NoAuthorizationException.class)
+  public ResponseEntity<Object> handleNoAuthorization(NoAuthorizationException e) {
+    return ResponseEntity.status(FORBIDDEN).body(ErrorResource.body(e.getMessage()));
+  }
+
+  @ExceptionHandler(ResourceNotFoundException.class)
+  public ResponseEntity<Object> handleNotFound(ResourceNotFoundException e) {
+    return ResponseEntity.status(NOT_FOUND).body(ErrorResource.body(e.getMessage()));
+  }
 
   @ExceptionHandler(InvalidAuthenticationException.class)
   public ResponseEntity<Object> handleInvalidAuthentication(InvalidAuthenticationException e) {

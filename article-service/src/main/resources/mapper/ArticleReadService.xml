@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="io.spring.article.infrastructure.mybatis.readservice.ArticleReadService">
+    <!-- Mirrors the monolith's ArticleReadService.xml minus the users / article_favorites joins:
+         `author` is a resolved user id (A.user_id) and `favorited` arrives as an id allow-list. -->
+    <sql id="selectArticleData">
+        select
+        A.id articleId,
+        A.slug articleSlug,
+        A.title articleTitle,
+        A.description articleDescription,
+        A.body articleBody,
+        A.user_id articleUserId,
+        A.created_at articleCreatedAt,
+        A.updated_at articleUpdatedAt,
+        T.name tagName
+        from
+        articles A
+        left join article_tags AT on A.id = AT.article_id
+        left join tags T on T.id = AT.tag_id
+    </sql>
+    <sql id="selectArticleIds">
+        select
+        DISTINCT(A.id) articleId, A.created_at
+        from
+        articles A
+        left join article_tags AT on A.id = AT.article_id
+        left join tags T on T.id = AT.tag_id
+    </sql>
+    <sql id="tagAuthorIdsFilter">
+        <if test="tag != null">
+            T.name = #{tag}
+        </if>
+        <if test="authorId != null">
+            AND A.user_id = #{authorId}
+        </if>
+        <if test="articleIds != null">
+            AND A.id in
+            <foreach collection="articleIds" item="id" open="(" separator="," close=")">
+                #{id}
+            </foreach>
+        </if>
+    </sql>
+
+    <select id="findById" resultMap="articleData">
+        <include refid="selectArticleData"/>
+        where A.id = #{id}
+    </select>
+    <select id="findBySlug" resultMap="articleData">
+        <include refid="selectArticleData"/>
+        where A.slug = #{slug}
+    </select>
+    <select id="queryArticleIds" resultMap="articleId">
+        <include refid="selectArticleIds" />
+        <where>
+            <include refid="tagAuthorIdsFilter" />
+        </where>
+        order by A.created_at desc
+        limit #{page.offset}, #{page.limit}
+    </select>
+    <select id="countArticles" resultType="java.lang.Integer">
+        select
+        count(DISTINCT A.id)
+        from
+        articles A
+        left join article_tags AT on A.id = AT.article_id
+        left join tags T on T.id = AT.tag_id
+        <where>
+            <include refid="tagAuthorIdsFilter" />
+        </where>
+    </select>
+    <select id="findArticles" resultMap="articleData">
+        <include refid="selectArticleData"/>
+        where A.id in
+        <foreach index="index" collection="articleIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        order by A.created_at desc
+    </select>
+    <select id="findArticlesOfAuthors" resultMap="articleData">
+        <include refid="selectArticleData"/>
+        where A.user_id in
+        <foreach index="index" collection="authors" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        limit #{page.offset}, #{page.limit}
+    </select>
+    <select id="countFeedSize" resultType="java.lang.Integer">
+        select count(1) from articles A where A.user_id in
+        <foreach collection="authors" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </select>
+    <select id="findArticleIdsWithCursor" resultType="java.lang.String">
+        <include refid="selectArticleIds" />
+        <where>
+            <include refid="tagAuthorIdsFilter" />
+            <if test='page.cursor != null and page.direction.name() == "NEXT"'>
+                AND A.created_at &lt; #{page.cursor}
+            </if>
+            <if test='page.cursor != null and page.direction.name() == "PREV"'>
+                AND A.created_at > #{page.cursor}
+            </if>
+        </where>
+        <if test='page.direction.name() == "NEXT"'>
+            order by A.created_at desc
+        </if>
+        <if test='page.direction.name() == "PREV"'>
+            order by A.created_at asc
+        </if>
+        limit #{page.queryLimit}
+    </select>
+    <select id="findArticlesOfAuthorsWithCursor" resultMap="articleData">
+        <include refid="selectArticleData"/>
+        <where>
+        A.user_id in
+        <foreach index="index" collection="authors" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        <if test='page.cursor != null and page.direction.name() == "NEXT"'>
+            AND A.created_at &lt; #{page.cursor}
+        </if>
+        <if test='page.cursor != null and page.direction.name() == "PREV"'>
+            AND A.created_at > #{page.cursor}
+        </if>
+        <if test='page.direction.name() == "NEXT"'>
+            order by A.created_at desc
+        </if>
+        <if test='page.direction.name() == "PREV"'>
+            order by A.created_at asc
+        </if>
+        </where>
+        limit #{page.queryLimit}
+    </select>
+
+    <resultMap id="articleId" type="string">
+        <id javaType="string" column="articleId"/>
+    </resultMap>
+
+    <resultMap id="articleData" type="io.spring.article.application.data.ArticleData">
+        <id column="articleId" property="id"/>
+        <result column="articleSlug" property="slug"/>
+        <result column="articleTitle" property="title"/>
+        <result column="articleDescription" property="description"/>
+        <result column="articleBody" property="body"/>
+        <result column="articleUserId" property="userId"/>
+        <result column="articleCreatedAt" property="createdAt"/>
+        <result column="articleUpdatedAt" property="updatedAt"/>
+        <collection property="tagList" javaType="list" ofType="string">
+            <result column="tagName"/>
+        </collection>
+    </resultMap>
+</mapper>
