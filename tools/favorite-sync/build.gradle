@@ -1,0 +1,41 @@
+plugins {
+    id 'java'
+    id 'application'
+    id "com.diffplug.spotless" version "6.2.1"
+}
+
+group = 'io.spring.tools'
+version = '0.1.0'
+sourceCompatibility = '11'
+targetCompatibility = '11'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Same driver version as the monolith so both databases are opened with identical semantics.
+    implementation 'org.xerial:sqlite-jdbc:3.36.0.3'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.13.1'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.8.2'
+}
+
+application {
+    mainClass = 'io.spring.tools.favoritesync.Main'
+    applicationName = 'favorite-sync'
+}
+
+spotless {
+    java {
+        target 'src/**/*.java'
+        googleJavaFormat()
+    }
+}
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+    }
+}
