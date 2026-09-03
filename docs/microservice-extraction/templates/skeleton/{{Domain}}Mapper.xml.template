@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<!-- Example for the Favorite domain; namespace must equal the @Mapper interface FQCN. -->
+<mapper namespace="io.spring.{{domain}}.infrastructure.mybatis.mapper.{{Domain}}Mapper">
+    <insert id="insert">
+        insert into article_favorites (article_id, user_id) values (#{favorite.articleId}, #{favorite.userId})
+    </insert>
+    <delete id="delete">
+        delete from article_favorites where article_id = #{favorite.articleId} and user_id = #{favorite.userId}
+    </delete>
+    <select id="find" resultMap="favorite">
+        select
+          AF.article_id favoriteArticleId,
+          AF.user_id favoriteUserId
+          from article_favorites AF
+          where AF.article_id = #{articleId} and AF.user_id = #{userId}
+    </select>
+    <select id="countByArticleId" resultType="int">
+        select count(1) from article_favorites where article_id = #{articleId}
+    </select>
+    <resultMap id="favorite" type="io.spring.{{domain}}.core.{{Domain}}">
+        <result column="favoriteArticleId" property="articleId"/>
+        <result column="favoriteUserId" property="userId"/>
+    </resultMap>
+</mapper>

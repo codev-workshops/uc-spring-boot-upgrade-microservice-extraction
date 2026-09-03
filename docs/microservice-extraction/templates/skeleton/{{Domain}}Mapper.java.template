@@ -1,0 +1,16 @@
+package io.spring.{{domain}}.infrastructure.mybatis.mapper;
+
+import io.spring.{{domain}}.core.{{Domain}};
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+
+@Mapper
+public interface {{Domain}}Mapper {
+  {{Domain}} find(@Param("articleId") String articleId, @Param("userId") String userId);
+
+  int countByArticleId(@Param("articleId") String articleId);
+
+  void insert(@Param("favorite") {{Domain}} favorite);
+
+  void delete(@Param("favorite") {{Domain}} favorite);
+}
