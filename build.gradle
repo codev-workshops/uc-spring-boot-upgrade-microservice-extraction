@@ -5,6 +5,7 @@ plugins {
     id "com.netflix.dgs.codegen" version "5.0.6"
     id "com.diffplug.spotless" version "6.2.1"
     id 'jacoco'
+    id 'org.springframework.cloud.contract' version '3.1.1'
 }
 
 version = '0.0.1-SNAPSHOT'
@@ -15,7 +16,7 @@ spotless {
     java {
         target project.fileTree(project.rootDir) {
             include '**/*.java'
-            exclude 'build/generated/**/*.*', 'build/generated-examples/**/*.*'
+            exclude 'build/generated/**/*.*', 'build/generated-examples/**/*.*', 'build/generated-test-sources/**/*.*'
         }
         googleJavaFormat()
     }
@@ -49,6 +50,22 @@ repositories {
     mavenCentral()
 }
 
+dependencyManagement {
+    imports {
+        mavenBom 'org.springframework.cloud:spring-cloud-dependencies:2021.0.1'
+    }
+}
+
+// Consumer-driven contract scaffolding for the microservice extraction. Contracts live in
+// src/test/resources/contracts and are verified against the monolith with MockMvc, so no service
+// needs to be running.
+contracts {
+    testFramework = 'JUNIT5'
+    testMode = 'MOCKMVC'
+    baseClassForTests = 'io.spring.contract.FavoriteContractBase'
+    contractsDslDir = file("${project.projectDir}/src/test/resources/contracts")
+}
+
 configurations {
     compileOnly {
         extendsFrom annotationProcessor
@@ -80,6 +97,7 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter-test:2.2.2'
     testImplementation 'org.mockito:mockito-inline:4.0.0'
+    testImplementation 'org.springframework.cloud:spring-cloud-starter-contract-verifier'
     
     // Selenium E2E testing
     testImplementation 'org.seleniumhq.selenium:selenium-java:4.15.0'
@@ -93,7 +111,19 @@ tasks.named('test') {
 	useJUnitPlatform()
 	// Exclude Selenium tests from JUnit test task
 	exclude 'io/spring/selenium/**'
+	// -Dharness.record=true makes the parallel-run harness print envelopes instead of asserting
+	if (System.getProperty('harness.record') != null) {
+		systemProperty 'harness.record', System.getProperty('harness.record')
+	}
 	finalizedBy jacocoTestReport
+}
+
+// Spring Cloud Contract generates its verification tests into the contractTest source set
+tasks.named('contractTest') {
+	useJUnitPlatform()
+	testLogging {
+		events "passed", "failed"
+	}
 }
 
 // Separate task for Selenium E2E tests using TestNG
