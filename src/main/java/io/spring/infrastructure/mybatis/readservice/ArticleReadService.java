@@ -24,6 +24,23 @@ public interface ArticleReadService {
       @Param("author") String author,
       @Param("favoritedBy") String favoritedBy);
 
+  List<String> queryArticlesByIds(
+      @Param("tag") String tag,
+      @Param("author") String author,
+      @Param("articleIds") List<String> articleIds,
+      @Param("page") Page page);
+
+  int countArticleByIds(
+      @Param("tag") String tag,
+      @Param("author") String author,
+      @Param("articleIds") List<String> articleIds);
+
+  List<String> findArticlesWithCursorByIds(
+      @Param("tag") String tag,
+      @Param("author") String author,
+      @Param("articleIds") List<String> articleIds,
+      @Param("page") CursorPageParameter page);
+
   List<ArticleData> findArticles(@Param("articleIds") List<String> articleIds);
 
   List<ArticleData> findArticlesOfAuthors(
