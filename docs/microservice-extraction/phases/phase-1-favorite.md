@@ -71,6 +71,43 @@ for every requested id (see contract in `00-golden-test-baseline.md`: `favorites
   }
 ```
 
+#### 2.2.1 As built (monolith seam)
+
+Flags — `application.properties` (all OFF; env-overridable; a **restart** flips them, no refresh scope in Phase 1):
+
+```properties
+extraction.favorite.enabled=${EXTRACTION_FAVORITE_ENABLED:false}
+extraction.favorite.read=${EXTRACTION_FAVORITE_READ:monolith}        # monolith|extracted|shadow
+extraction.favorite.write=${EXTRACTION_FAVORITE_WRITE:monolith}      # monolith|extracted|dual-write
+extraction.favorite.base-url=${EXTRACTION_FAVORITE_BASE_URL:http://localhost:8081}
+extraction.favorite.connect-timeout=500ms
+extraction.favorite.read-timeout=1500ms
+extraction.favorite.fallback=${EXTRACTION_FAVORITE_FALLBACK:monolith} # monolith|empty|fail
+extraction.{comment,tag,article,user}.enabled=false
+jwt.secret=${JWT_SECRET:<previous value>}
+```
+
+| Design name | Built as | Notes |
+|---|---|---|
+| `ExtractionProperties` | `io.spring.infrastructure.extraction.ExtractionProperties` (+ `ExtractionConfig`) | `DomainRoute` per domain with `readsRemote()/shadows()/writesRemote()/monolithAuthoritative()`; `enabled=false` forces monolith regardless of modes |
+| `FavoriteQueryPort` | `io.spring.application.favorite.FavoriteQueryPort` | 4 mirrored methods + `articleIdsFavoritedBy(userId)` + `ownsFavoritedByFilter()` |
+| `MyBatisFavoriteQueryAdapter` | `ArticleFavoritesReadService extends FavoriteQueryPort` | the existing mapper *is* the adapter (no wrapper bean, so `@MybatisTest` slices keep working); new select `articleIdsFavoritedBy` |
+| `RemoteFavoriteQueryAdapter` | `io.spring.infrastructure.extraction.favorite.RemoteFavoriteQueryAdapter` | empty-list short-circuit, 500-id chunks, zero-fill in request order |
+| `RoutingFavoriteQueryPort` | `...extraction.favorite.RoutingFavoriteQueryPort` (`@Primary`) | per-call routing; shadow via `ShadowComparator`/`LoggingShadowComparator` (async, WARN + counters); `fallback` monolith/empty/fail; read-after-write in the same request is served locally while `write != extracted` (`ReadAfterWriteMarker`) |
+| `FavoriteCommandPort` | `io.spring.application.favorite.FavoriteCommandPort` | `LocalFavoriteCommand`, `RemoteFavoriteCommand`, `DualWriteFavoriteCommand` (local first; remote failure logged + `pendingMirrorOperations()`), `RoutingFavoriteCommandPort` (`@Primary`) |
+| Write seam entry | `RoutingArticleFavoriteRepository` (`@Primary ArticleFavoriteRepository`) | `ArticleFavoriteApi` / `ArticleMutation` are untouched and keep calling `ArticleFavoriteRepository`; `find()` stays on the monolith table while authoritative |
+| `FavoriteServiceClient` | `...extraction.favorite.FavoriteServiceClient` | `RestTemplateBuilder` + route timeouts; exactly the §2.1 paths; reads unauthenticated, retried once on connect failure/503 only; writes forward `Authorization` (`AuthTokenPropagator`), never retried; failures → `FavoriteServiceException` |
+| DTOs | `io.spring.application.favorite.dto.{FavoriteCountDto,FavoriteCountsDto,UserFavoritesDto,FavoriteDto,ArticleIdsRequest,UserFavoritesQueryRequest}` | |
+| `queryArticlesByIds` | `ArticleReadService.{queryArticlesByIds,countArticleByIds,findArticlesWithCursorByIds}` | used only when `FavoriteQueryPort.ownsFavoritedByFilter()`; `ArticleQueryService` resolves username → id with `UserReadService`; join path untouched |
+
+Tests: `src/test/java/io/spring/infrastructure/extraction/**` (unit + `MockRestServiceServer`),
+`FavoritedByIdListParityTest` (join vs id-list, offset + cursor), `harness/FavoriteExtractedParallelRunTest`
+(`@SpringBootTest`, both `RoutePath`s, EXTRACTED = `enabled=true, read=extracted, write=dual-write` against a
+`MockRestServiceServer` stub; goldens byte-identical). Consumer stubs of the §2.1 JSON live in
+`src/test/resources/favorite-service-stubs/` (not under `contracts/`, which the Spring Cloud Contract plugin treats as
+monolith *producer* contracts). The Phase 0 `FavoriteParallelRunTest` is unchanged (its EXTRACTED params remain skipped by
+design since it is fully mocked).
+
 ### 2.3 Not changed in Phase 1
 Domain classes `ArticleFavorite`/`ArticleFavoriteRepository` and the MyBatis mapper stay in the
 monolith until cutover; they back the flag-OFF path and the authoritative store.
