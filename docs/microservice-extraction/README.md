@@ -8,11 +8,12 @@ the next phase.
 | Phase | Domain | Tables that move | Design doc | Gate |
 |-------|--------|------------------|------------|------|
 | 0 | Harness + design | none | this directory | done when docs approved |
-| 1 | Favorite | `article_favorites` | [phases/phase-1-favorite.md](phases/phase-1-favorite.md) | approval pending |
-| 2 | Comment | `comments` | [phases/phase-2-comment.md](phases/phase-2-comment.md) | approval pending |
-| 3 | Tag (bundled with Article) | `tags`, `article_tags` | [phases/phase-3-tag.md](phases/phase-3-tag.md) | approval pending |
-| 4 | Article | `articles` | [phases/phase-4-article.md](phases/phase-4-article.md) | approval pending |
-| 5 | User | `users`, `follows` | [phases/phase-5-user.md](phases/phase-5-user.md) | approval pending |
+| 1 | Favorite | `article_favorites` | [phases/phase-1-favorite.md](phases/phase-1-favorite.md) · [runbook](runbooks/phase-1-favorite-cutover.md) | approved, implemented (PR #15) |
+| 2 | Comment | `comments` | [phases/phase-2-comment.md](phases/phase-2-comment.md) · [runbook](runbooks/phase-2-comment-cutover.md) | approved, implemented (PR #23) |
+| 3 | Tag (bundled with Article) | `tags`, `article_tags` | [phases/phase-3-tag.md](phases/phase-3-tag.md) · [runbook](runbooks/phase-3-tag-cutover.md) | approved, implemented (PR #27) |
+| 4 | Article | `articles` | [phases/phase-4-article.md](phases/phase-4-article.md) · [runbook](runbooks/phase-4-article-cutover.md) | approved, implemented (PR #31) |
+| 5 | User | `users`, `follows` | [phases/phase-5-user.md](phases/phase-5-user.md) · [runbook](runbooks/phase-5-user-cutover.md) | approved, implementation in progress |
+| — | Wrap-up | none | [06-post-extraction-state.md](06-post-extraction-state.md) | end state + two open program questions for the user |
 
 ## Phase 0 documents
 
@@ -25,6 +26,14 @@ the next phase.
 | `04-strangler-wiring-design.md` | strangler wiring design | feature flags, routing seams, REST clients + DTOs, auth propagation |
 | `05-data-sync-and-rollback-design.md` | data sync design | dual-write, backfill, reconciliation, rollback |
 | `phases/*.md` | orchestrator | per-domain execution plan assembled from the above |
+
+## Per-phase deliverables
+
+| Doc | Purpose |
+|-----|---------|
+| `runbooks/phase-N-*-cutover.md` | operator procedure per domain: dual-write, T0 + backfill, reconcile, shadow reads, extracted reads, cutover, rollback, rollback drill |
+| [`tools/favorite-sync/README.md`](../../tools/favorite-sync/README.md) | the sync CLI (`--domain favorite\|comment\|tag\|article\|user`): backfill, reverse-backfill, reconcile/repair, report format, exit codes |
+| `06-post-extraction-state.md` | end-state overview after Phase 5: four services (8081–8084), the monolith as strangler façade (JWT issuer, public REST/GraphQL, composition), every flag and default, sync domains, open questions |
 
 ## Invariants that hold for every phase
 

@@ -53,7 +53,26 @@ public enum Domain {
               List.of(
                   "user_id", "slug", "title", "description", "body", "created_at", "updated_at"),
               List.of("id"),
-              List.of("slug"))));
+              List.of("slug")))),
+  /**
+   * {@code users(id, username UNIQUE, password, email UNIQUE, bio, image)} keyed by {@code id},
+   * every other column compared ({@code password} is the stored hash, compared as stored and never
+   * printed), then {@code follows(user_id, follow_id)} keyed by the pair with no constraint. Users
+   * are copied first so a follow never references a user the target does not have yet. A username
+   * or email already held by a different id is reported as a conflict.
+   */
+  USER(
+      "user",
+      List.of(
+          SyncTable.keyed(
+              "users",
+              List.of("id"),
+              List.of("username", "password", "email", "bio", "image"),
+              List.of("id"),
+              List.of("username", "email"),
+              List.of("password")),
+          SyncTable.unconstrained(
+              "follows", List.of("user_id", "follow_id"), List.of("userId", "followId"))));
 
   public final String domainName;
   public final List<SyncTable> tables;

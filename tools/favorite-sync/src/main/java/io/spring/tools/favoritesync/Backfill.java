@@ -241,8 +241,7 @@ public final class Backfill {
       if (table.hasUniqueColumns() && insertedInChunk < chunk.size()) {
         for (Row r : chunk) {
           if (!SyncDb.existsByKey(table, dst, r)) {
-            Conflict c = Conflict.find(table, dst, r);
-            if (c != null) {
+            for (Conflict c : Conflict.find(table, dst, r)) {
               conflicts.add(c);
               out.println("backfill conflict table=" + table.table + " " + c);
             }

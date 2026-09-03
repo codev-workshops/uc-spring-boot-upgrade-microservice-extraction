@@ -4,15 +4,20 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
  * A row that cannot be written to the other side because a UNIQUE payload column ({@code
  * articles.slug}) already holds the same value under a different key there. {@code INSERT OR
  * IGNORE} would drop such a row silently and an {@code UPDATE} would fail, so conflicts are
- * detected up front and reported instead.
+ * detected up front and reported instead. A table may have several unique columns ({@code
+ * users.username} and {@code users.email}); one row then yields one conflict per clashing column,
+ * possibly held by different keys. Values of sensitive columns are rendered as {@link #REDACTED}.
  */
 public final class Conflict {
+  public static final String REDACTED = "<redacted>";
+
   public final Row row;
   public final String column;
   public final String value;
@@ -27,10 +32,11 @@ public final class Conflict {
   }
 
   /**
-   * Checks every unique column of {@code row} against {@code other}; returns the first conflict, or
-   * {@code null} when the row could be written there.
+   * Checks every unique column of {@code row} against {@code other}; returns one conflict per
+   * clashing column, empty when the row could be written there.
    */
-  static Conflict find(SyncTable table, Connection other, Row row) throws SQLException {
+  static List<Conflict> find(SyncTable table, Connection other, Row row) throws SQLException {
+    List<Conflict> found = new ArrayList<>();
     for (String column : table.uniqueColumns) {
       Object v = row.payload[table.payloadIndex(column)];
       if (v == null) {
@@ -42,13 +48,14 @@ public final class Conflict {
           if (rs.next()) {
             String holder = rs.getString(1);
             if (!holder.equals(row.key[0])) {
-              return new Conflict(row, column, String.valueOf(v), holder);
+              String shown = table.isSensitive(column) ? REDACTED : String.valueOf(v);
+              found.add(new Conflict(row, column, shown, holder));
             }
           }
         }
       }
     }
-    return null;
+    return found;
   }
 
   /** Conflicts of {@code rows} against {@code other}, in row order. */
@@ -58,10 +65,7 @@ public final class Conflict {
       return;
     }
     for (Row r : rows) {
-      Conflict c = find(table, other, r);
-      if (c != null) {
-        into.add(c);
-      }
+      into.addAll(find(table, other, r));
     }
   }
 
