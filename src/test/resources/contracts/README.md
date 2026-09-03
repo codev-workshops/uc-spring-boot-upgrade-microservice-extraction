@@ -36,3 +36,7 @@ Favorite service (consumer) relies on when it calls the monolith.
   Favorite domain but still has to resolve a slug to an article id via the monolith, so this pins
   the shape it depends on. It is a placeholder to demonstrate the mechanics; replace it with the
   real contract when the Favorite service exists.
+- `comment/*.groovy` — **consumer-side**. The canonical internal API of comment-service
+  (phase-2-comment.md section 2.1) as the monolith's `CommentServiceClient` expects it. Excluded
+  from producer verification here (`contracts { excludedFiles = ['comment/**'] }`); comment-service
+  verifies them as its provider contracts. See `comment/README.md`.

@@ -17,7 +17,7 @@ import org.springframework.validation.annotation.Validated;
 @Setter
 public class ExtractionProperties {
   private DomainRoute favorite = new DomainRoute();
-  private DomainRoute comment = new DomainRoute();
+  private DomainRoute comment = new DomainRoute(URI.create("http://localhost:8082"));
   private DomainRoute tag = new DomainRoute();
   private DomainRoute article = new DomainRoute();
   private DomainRoute user = new DomainRoute();
@@ -32,6 +32,12 @@ public class ExtractionProperties {
     private URI baseUrl = URI.create("http://localhost:8081");
     private Duration connectTimeout = Duration.ofMillis(500);
     private Duration readTimeout = Duration.ofMillis(1500);
+
+    public DomainRoute() {}
+
+    public DomainRoute(URI baseUrl) {
+      this.baseUrl = baseUrl;
+    }
 
     public boolean readsRemote() {
       return enabled && read == ReadMode.EXTRACTED;

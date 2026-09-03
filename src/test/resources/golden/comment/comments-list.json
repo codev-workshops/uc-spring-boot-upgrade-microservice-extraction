@@ -1,0 +1,27 @@
+{
+  "comments" : [ {
+    "author" : {
+      "bio" : "",
+      "following" : false,
+      "image" : "",
+      "username" : "reader"
+    },
+    "body" : "older",
+    "createdAt" : "<volatile>",
+    "cursor" : "<volatile>",
+    "id" : "<uuid>",
+    "updatedAt" : "<volatile>"
+  }, {
+    "author" : {
+      "bio" : "bio",
+      "following" : false,
+      "image" : "img",
+      "username" : "author"
+    },
+    "body" : "newer",
+    "createdAt" : "<volatile>",
+    "cursor" : "<volatile>",
+    "id" : "<uuid>",
+    "updatedAt" : "<volatile>"
+  } ]
+}
