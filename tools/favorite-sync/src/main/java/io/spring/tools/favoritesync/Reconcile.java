@@ -18,7 +18,10 @@ import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Diff of every {@link SyncTable} of a {@link Domain} between the monolith DB ({@code --source})
@@ -31,6 +34,13 @@ import java.util.List;
  * article_favorites} and {@code article_tags}). For a table whose key SQLite does not enforce
  * ({@code article_tags}) repeated keys are collapsed to one logical row and reported as duplicates;
  * a repair never multiplies them.
+ *
+ * <p>For a table with a UNIQUE payload column ({@code articles.slug}) every row a repair would
+ * insert or update on the other side is first checked against that side: a value already held there
+ * by a different key is a {@link Conflict}. Conflicts are reported ({@code uniqueConflictsIn*}),
+ * excluded from the repair (they would be silently ignored or fail) and therefore remain as drift,
+ * unless the clashing row is itself removed by {@code --delete-extras} in the same run — extras are
+ * deleted before anything is inserted so such a repair converges in one pass.
  *
  * <p>With a multi-table domain every table is diffed, then — if repairing — the {@code
  * --max-repair} guard is evaluated over the whole run before anything is written, so a mass-drift
@@ -97,6 +107,10 @@ public final class Reconcile {
     public final List<Row> duplicateInSource = new ArrayList<>();
 
     public final List<Row> duplicateInTarget = new ArrayList<>();
+    /** Source rows (missing or diverged) whose unique value another key holds in the target. */
+    public final List<Conflict> conflictsInTarget = new ArrayList<>();
+    /** Target rows (extra or diverged) whose unique value another key holds in the source. */
+    public final List<Conflict> conflictsInSource = new ArrayList<>();
 
     public long driftRows() {
       return missingInTarget.size() + extraInTarget.size() + diverged.size();
@@ -212,12 +226,30 @@ public final class Reconcile {
         long touched = 0;
         long authoritativeRows = 0;
         for (Diff d : before) {
-          List<Row> toInsert = toTarget ? d.missingInTarget : d.extraInTarget;
           List<Row> toDelete =
               opts.deleteExtras ? (toTarget ? d.extraInTarget : d.missingInTarget) : List.<Row>of();
+          Set<Row> blocked =
+              blockedRows(toTarget ? d.conflictsInTarget : d.conflictsInSource, toDelete);
+          List<Row> toInsert = new ArrayList<>();
+          for (Row r : toTarget ? d.missingInTarget : d.extraInTarget) {
+            if (!blocked.contains(r)) {
+              toInsert.add(r);
+            }
+          }
           List<Row> toUpdate = new ArrayList<>(d.diverged.size());
           for (Divergence div : d.diverged) {
-            toUpdate.add(toTarget ? div.source : div.target);
+            Row authoritative = toTarget ? div.source : div.target;
+            if (!blocked.contains(authoritative)) {
+              toUpdate.add(authoritative);
+            }
+          }
+          if (!blocked.isEmpty()) {
+            out.println(
+                "reconcile table="
+                    + d.table.table
+                    + " skipped="
+                    + blocked.size()
+                    + " rows whose unique value is held by another key on the repaired side");
           }
           Plan plan = new Plan(d, toInsert, toDelete, toUpdate);
           plans.add(plan);
@@ -265,6 +297,24 @@ public final class Reconcile {
     return new Outcome(before, after, inserted, deleted, updated, report);
   }
 
+  /** Conflicting rows that stay blocked: their clashing counterpart is not deleted in this run. */
+  private static Set<Row> blockedRows(List<Conflict> conflicts, List<Row> toDelete) {
+    Set<Row> blocked = new HashSet<>();
+    if (conflicts.isEmpty()) {
+      return blocked;
+    }
+    Set<String> deletedKeys = new HashSet<>();
+    for (Row r : toDelete) {
+      deletedKeys.add(r.key[0]);
+    }
+    for (Conflict c : conflicts) {
+      if (!deletedKeys.contains(c.conflictingKey)) {
+        blocked.add(c.row);
+      }
+    }
+    return blocked;
+  }
+
   private static long driftRows(List<Diff> diffs) {
     long drift = 0;
     for (Diff d : diffs) {
@@ -301,6 +351,9 @@ public final class Reconcile {
             + (d.table.uniqueKey
                 ? ""
                 : " duplicateKeys=" + d.duplicateInSource.size() + "/" + d.duplicateInTarget.size())
+            + (d.table.hasUniqueColumns()
+                ? " conflicts=" + d.conflictsInTarget.size() + "/" + d.conflictsInSource.size()
+                : "")
             + " status="
             + (d.driftRows() == 0 ? "CLEAN" : "DRIFT"));
   }
@@ -339,6 +392,20 @@ public final class Reconcile {
     }
     d.sourceChecksum = hex(srcDigest.digest());
     d.targetChecksum = hex(dstDigest.digest());
+    if (table.hasUniqueColumns()) {
+      Conflict.collect(table, dst, d.missingInTarget, d.conflictsInTarget);
+      Conflict.collect(table, src, d.extraInTarget, d.conflictsInSource);
+      List<Row> divergedSource = new ArrayList<>();
+      List<Row> divergedTarget = new ArrayList<>();
+      for (Divergence div : d.diverged) {
+        if (!Collections.disjoint(div.columns, table.uniqueColumns)) {
+          divergedSource.add(div.source);
+          divergedTarget.add(div.target);
+        }
+      }
+      Conflict.collect(table, dst, divergedSource, d.conflictsInTarget);
+      Conflict.collect(table, src, divergedTarget, d.conflictsInSource);
+    }
     return d;
   }
 
@@ -387,6 +454,13 @@ public final class Reconcile {
     boolean auto = c.getAutoCommit();
     c.setAutoCommit(false);
     try {
+      try (PreparedStatement ps = SyncDb.deleteByKey(table, c)) {
+        for (Row r : delete) {
+          r.bindKey(ps);
+          ps.addBatch();
+        }
+        ps.executeBatch();
+      }
       long before = SyncDb.totalChanges(c);
       try (PreparedStatement ps = SyncDb.insertIfAbsent(table, c)) {
         for (Row r : insert) {
@@ -404,13 +478,6 @@ public final class Reconcile {
           }
           ps.executeBatch();
         }
-      }
-      try (PreparedStatement ps = SyncDb.deleteByKey(table, c)) {
-        for (Row r : delete) {
-          r.bindKey(ps);
-          ps.addBatch();
-        }
-        ps.executeBatch();
       }
       c.commit();
       return inserted;
@@ -495,6 +562,10 @@ public final class Reconcile {
       truncated |= keys(t, d, "duplicateKeysInMonolith", d.duplicateInSource);
       truncated |= keys(t, d, "duplicateKeysInService", d.duplicateInTarget);
     }
+    if (d.table.hasUniqueColumns()) {
+      truncated |= conflicts(t, d, "uniqueConflictsInService", d.conflictsInTarget);
+      truncated |= conflicts(t, d, "uniqueConflictsInMonolith", d.conflictsInSource);
+    }
     if (truncated) {
       t.put("truncated", true);
     }
@@ -530,6 +601,21 @@ public final class Reconcile {
     if (d.table.hasPayload()) {
       parent.put("divergedTotal", list.size());
     }
+    return list.size() > REPORT_TRUNCATE_AT;
+  }
+
+  private boolean conflicts(ObjectNode parent, Diff d, String field, List<Conflict> list) {
+    ArrayNode arr = parent.putArray(field);
+    int n = Math.min(list.size(), REPORT_TRUNCATE_AT);
+    for (int i = 0; i < n; i++) {
+      Conflict c = list.get(i);
+      ObjectNode node = arr.addObject();
+      putKey(node, d, c.row);
+      node.put("column", c.column);
+      node.put("value", c.value);
+      node.put("conflictingId", c.conflictingKey);
+    }
+    parent.put(field + "Total", list.size());
     return list.size() > REPORT_TRUNCATE_AT;
   }
 

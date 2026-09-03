@@ -21,6 +21,11 @@ import java.util.List;
  * one insert-if-absent transaction on the target, so the job is idempotent, re-runnable and
  * restartable: a crash mid-chunk rolls that chunk back and the next run simply re-inserts it.
  * Payload values are copied as the raw stored SQLite values, never reformatted.
+ *
+ * <p>For a table with a UNIQUE payload column ({@code articles.slug}) a skipped row whose key is
+ * still absent from the target after the chunk was applied is a unique-value clash with a different
+ * key; such rows are reported as {@link Conflict}s (and counted in {@code rowsSkipped}) rather than
+ * aborting the run.
  */
 public final class Backfill {
 
@@ -37,6 +42,8 @@ public final class Backfill {
     public final long rowsSkipped;
     public final int chunks;
     public final long targetCountAfter;
+    /** Rows that could not be inserted because a unique column clashed with another key. */
+    public final List<Conflict> conflicts;
 
     TableResult(
         String table,
@@ -44,13 +51,15 @@ public final class Backfill {
         long rowsInserted,
         long rowsSkipped,
         int chunks,
-        long targetCountAfter) {
+        long targetCountAfter,
+        List<Conflict> conflicts) {
       this.table = table;
       this.rowsRead = rowsRead;
       this.rowsInserted = rowsInserted;
       this.rowsSkipped = rowsSkipped;
       this.chunks = chunks;
       this.targetCountAfter = targetCountAfter;
+      this.conflicts = List.copyOf(conflicts);
     }
   }
 
@@ -62,6 +71,7 @@ public final class Backfill {
     public final long rowsSkipped;
     public final int chunks;
     public final long targetCountAfter;
+    public final long conflicts;
     public final List<TableResult> tables;
 
     Result(Instant t0, List<TableResult> tables) {
@@ -72,18 +82,21 @@ public final class Backfill {
       long skipped = 0;
       int chunkCount = 0;
       long after = 0;
+      long clashes = 0;
       for (TableResult t : tables) {
         read += t.rowsRead;
         inserted += t.rowsInserted;
         skipped += t.rowsSkipped;
         chunkCount += t.chunks;
         after += t.targetCountAfter;
+        clashes += t.conflicts.size();
       }
       this.rowsRead = read;
       this.rowsInserted = inserted;
       this.rowsSkipped = skipped;
       this.chunks = chunkCount;
       this.targetCountAfter = after;
+      this.conflicts = clashes;
     }
 
     public TableResult table(String name) {
@@ -184,6 +197,7 @@ public final class Backfill {
                 + result.rowsSkipped
                 + " chunks="
                 + result.chunks
+                + (result.conflicts > 0 ? " conflicts=" + result.conflicts : "")
                 + " T0="
                 + result.t0);
       }
@@ -203,6 +217,7 @@ public final class Backfill {
     long read = 0;
     long inserted = 0;
     int chunks = 0;
+    List<Conflict> conflicts = new ArrayList<>();
     long sourceCount = SyncDb.count(table, src);
     out.println(
         "backfill sourceRows=" + sourceCount + " targetRowsBefore=" + SyncDb.count(table, dst));
@@ -223,6 +238,17 @@ public final class Backfill {
         ins.executeBatch();
       }
       long insertedInChunk = SyncDb.totalChanges(dst) - before;
+      if (table.hasUniqueColumns() && insertedInChunk < chunk.size()) {
+        for (Row r : chunk) {
+          if (!SyncDb.existsByKey(table, dst, r)) {
+            Conflict c = Conflict.find(table, dst, r);
+            if (c != null) {
+              conflicts.add(c);
+              out.println("backfill conflict table=" + table.table + " " + c);
+            }
+          }
+        }
+      }
       dst.commit();
       read += chunk.size();
       inserted += insertedInChunk;
@@ -246,7 +272,13 @@ public final class Backfill {
     }
     TableResult r =
         new TableResult(
-            table.table, read, inserted, read - inserted, chunks, SyncDb.count(table, dst));
+            table.table,
+            read,
+            inserted,
+            read - inserted,
+            chunks,
+            SyncDb.count(table, dst),
+            conflicts);
     out.println(
         "backfill done rowsRead="
             + r.rowsRead
@@ -256,6 +288,7 @@ public final class Backfill {
             + r.rowsSkipped
             + " chunks="
             + r.chunks
+            + (table.hasUniqueColumns() ? " conflicts=" + r.conflicts.size() : "")
             + " targetRowsAfter="
             + r.targetCountAfter
             + " T0="

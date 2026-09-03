@@ -1,11 +1,12 @@
-# favorite-sync — backfill, reconciliation and rollback tooling for `article_favorites`, `comments` and tags
+# favorite-sync — backfill, reconciliation and rollback tooling for `article_favorites`, `comments`, tags and `articles`
 
 Operator CLI implementing §3 (backfill), §4 (reconciliation/repair) and §6 (rollback /
 reverse-backfill) of [`05-data-sync-and-rollback-design.md`](../../docs/microservice-extraction/05-data-sync-and-rollback-design.md)
-for the **Favorite** domain (Phase 1), via `--domain comment` the **Comment** domain (Phase 2) and
-via `--domain tag` the **Tag** tables of `article-service` (Phase 3).
-The project keeps its Phase 1 name; every command takes `--domain favorite|comment|tag` (default
-`favorite`, so all Phase 1 commands are unchanged). It works on two SQLite files:
+for the **Favorite** domain (Phase 1), via `--domain comment` the **Comment** domain (Phase 2),
+via `--domain tag` the **Tag** tables of `article-service` (Phase 3) and via `--domain article`
+the **`articles`** table of `article-service` (Phase 4).
+The project keeps its Phase 1 name; every command takes `--domain favorite|comment|tag|article`
+(default `favorite`, so all Phase 1 commands are unchanged). It works on two SQLite files:
 
 | `--domain` | Side | File | Table | Natural key | Compared payload | Owner |
 |---|---|---|---|---|---|---|
@@ -15,20 +16,41 @@ The project keeps its Phase 1 name; every command takes `--domain favorite|comme
 | `comment` | `--target` (service) | `comment-service/comment.db` | `comments` | `id` | `body, article_id, user_id, created_at, updated_at` | `comment-service` (its Flyway `V1__create_comment_tables.sql`) |
 | `tag` | `--source` (monolith) | `dev.db` | `tags` **then** `article_tags` | `id` / `(article_id, tag_id)` | `name` / — | Conduit monolith (Flyway `V1__create_tables.sql`) |
 | `tag` | `--target` (service) | `article-service/article.db` | `tags` **then** `article_tags` | `id` / `(article_id, tag_id)` | `name` / — | `article-service` (its Flyway migration) |
+| `article` | `--source` (monolith) | `dev.db` | `articles` | `id` | `user_id, slug, title, description, body, created_at, updated_at` | Conduit monolith (Flyway `V1__create_tables.sql`) |
+| `article` | `--target` (service) | `article-service/article.db` | `articles` | `id` | `user_id, slug, title, description, body, created_at, updated_at` | `article-service` (Flyway `V1__create_article_tables.sql`) |
 
 `--domain tag` is the only multi-table domain: **one** invocation of `backfill`,
 `reverse-backfill` or `reconcile` processes `tags` first and `article_tags` second (so a relation
 is never copied before the tag it points at) and reports both, per table, in that order.
-`articles` itself stays in the monolith until Phase 4 and is not touched by this tool.
+
+`--domain article` covers **only** `articles`. The tag tables live in the same `article.db` but
+stay the job of `--domain tag`, so a Phase 4 cutover is two invocations per command, **`tag`
+first, then `article`** (`article_tags.article_id` has no FK, so the order is about the shadow-read
+comparison of `tagList`, not about constraints). A combined `--domain article-bundle` was
+deliberately not added — see the open questions.
 
 The tool never creates the schema: if a file or the domain's table is missing it exits with code 2
 and a message telling you to run the owning application's Flyway migration first.
 
-For `comment`, rows are copied **verbatim**: every column is read and written as the raw SQLite
-value (`getObject`/`setObject`), so `created_at`/`updated_at` keep exactly the storage class and
-value the monolith wrote (INTEGER epoch-millis from `DateTimeHandler`, or TEXT from the
-`datetime(...)` seed rows). Nothing is parsed or reformatted, and the `updatedAt == createdAt`
-quirk of `TransferData.xml` is preserved because both columns are copied as stored.
+For `comment` and `article`, rows are copied **verbatim**: every column is read and written as the
+raw SQLite value (`getObject`/`setObject`), so `created_at`/`updated_at` keep exactly the storage
+class and value the monolith wrote (INTEGER epoch-millis from `DateTimeHandler`, or TEXT from the
+`datetime(...)` seed rows). Nothing is parsed or reformatted; timestamps are compared as stored,
+the `updatedAt == createdAt` quirk of `TransferData.xml` is preserved, and so is the
+`ArticleMapper.xml#update` quirk of never touching `updated_at`, because both columns are copied
+as stored.
+
+`articles.slug` is **UNIQUE** independently of the `id` primary key. `INSERT OR IGNORE` only
+protects against a duplicate `id`; a source row whose slug is already held by a *different* id in
+the target would either be silently dropped (backfill) or make a repair fail with a constraint
+error. The tool therefore checks every row it could not insert / would update against the other
+side and reports such rows as **conflicts** (`uniqueConflictsInService` /
+`uniqueConflictsInMonolith`, each entry `{ "id", "column": "slug", "value", "conflictingId" }`),
+never crashes, and never overwrites the holder. A conflicting row stays missing/diverged — i.e. it
+is drift — until an operator resolves it by id: with `--delete-extras` the tool deletes the extras
+*before* inserting, so a holder that only exists on the non-authoritative side is removed and the
+repair converges in one pass; a slug swap between two ids that exist on both sides is never
+repaired automatically.
 
 `article_tags` has **no primary key and no unique index** in either schema, so `INSERT OR IGNORE`
 would happily duplicate a pair. For that table the tool inserts with
@@ -51,9 +73,9 @@ repo root is unaffected.
   part of the Android SDK), while JDK 11 is a hard requirement already.
 - Restartable chunked writes, merge-join diffing, the exact JSON report format of 05 §4.2 and the
   `--max-repair` safety guard are tedious and brittle in shell; JUnit 5 gives us a real test suite
-  (56 tests: idempotency, crash-restart, drift detection incl. diverged payload, repair
-  convergence, reverse-backfill, empty tables, duplicate pairs, 10k-row performance — for all
-  three domains).
+  (77 tests: idempotency, crash-restart, drift detection incl. diverged payload, repair
+  convergence, reverse-backfill, empty tables, duplicate pairs, slug conflicts, 10k-row
+  performance — for all four domains).
 - Comment bodies are free text with newlines and quotes (05 §3 table, row "2 Comment"): a typed
   JDBC copy sidesteps every CSV/escaping problem a shell export would have.
 - No Spring Boot: start-up is instant and the jar has two dependencies (sqlite-jdbc, Jackson).
@@ -65,7 +87,7 @@ Requires **JDK 11** (Spotless/google-java-format fails on 17+):
 ```sh
 export JAVA_HOME=/path/to/jdk-11            # e.g. $HOME/jdk-11.0.32.1+1
 cd tools/favorite-sync
-./gradlew build                              # compiles, runs Spotless check + 56 JUnit tests
+./gradlew build                              # compiles, runs Spotless check + 77 JUnit tests
 ./gradlew installDist                        # -> build/install/favorite-sync/bin/favorite-sync
 alias favorite-sync="$PWD/build/install/favorite-sync/bin/favorite-sync"
 ```
@@ -75,16 +97,18 @@ alias favorite-sync="$PWD/build/install/favorite-sync/bin/favorite-sync"
 ## Commands
 
 All commands take `--source <monolith db>` and `--target <service db>`, plus the optional
-`--domain favorite|comment|tag` (default `favorite`). `--key value` and `--key=value` are both
-accepted. The examples below use the favorite defaults; for Comment add `--domain comment` and
-point `--target` at `comment-service/comment.db`, for Tag add `--domain tag` and point `--target`
-at `article-service/article.db`:
+`--domain favorite|comment|tag|article` (default `favorite`). `--key value` and `--key=value` are
+both accepted. The examples below use the favorite defaults; for Comment add `--domain comment`
+and point `--target` at `comment-service/comment.db`, for Tag and Article add `--domain tag` /
+`--domain article` and point `--target` at `article-service/article.db`:
 
 ```sh
 favorite-sync backfill  --domain comment --source dev.db --target comment-service/comment.db
 favorite-sync reconcile --domain comment --source dev.db --target comment-service/comment.db --report out.json
 favorite-sync backfill  --domain tag --source dev.db --target article-service/article.db
 favorite-sync reconcile --domain tag --source dev.db --target article-service/article.db --report out.json
+favorite-sync backfill  --domain article --source dev.db --target article-service/article.db   # after tag
+favorite-sync reconcile --domain article --source dev.db --target article-service/article.db --report out.json
 ```
 
 ### `backfill`
@@ -93,6 +117,7 @@ favorite-sync reconcile --domain tag --source dev.db --target article-service/ar
 favorite-sync backfill --source dev.db --target favorite.db [--chunk 5000]
 favorite-sync backfill --domain comment --source dev.db --target comment-service/comment.db [--chunk 5000]
 favorite-sync backfill --domain tag --source dev.db --target article-service/article.db [--chunk 5000]
+favorite-sync backfill --domain article --source dev.db --target article-service/article.db [--chunk 5000]
 ```
 
 1. Records **T0** (wall clock, printed as `backfill T0=...`). Enable
@@ -101,7 +126,7 @@ favorite-sync backfill --domain tag --source dev.db --target article-service/art
 2. Takes an online-backup snapshot of `--source` (SQLite `BACKUP TO`, WAL-safe — the live
    `dev.db` is never scanned while the monolith writes to it).
 3. Walks the snapshot in keyset order on the natural key (`(article_id, user_id)` for favorite,
-   `id` for comment, `id` then `(article_id, tag_id)` for tag), `--chunk` rows at a time
+   `id` for comment and article, `id` then `(article_id, tag_id)` for tag), `--chunk` rows at a time
    (default 5000), and applies each chunk to `--target` as one `INSERT OR IGNORE` transaction
    (an `insert ... where not exists` transaction for `article_tags`). All columns of the domain table are copied;
    a row whose key already exists in the target is left untouched (never overwritten — use
@@ -127,7 +152,12 @@ run total:
 backfill done domain=tag tables=2 rowsRead=1512 rowsInserted=1512 rowsSkipped=0 chunks=2 T0=2026-09-03T04:00:00.123Z
 ```
 
-Exit code 0 on success, 2 on error.
+`--domain article` additionally prints one `backfill conflict table=articles [id=...] slug=<slug>
+held by <other id>` line per slug clash and a `conflicts=N` counter in the `done` line. Such rows
+are **skipped, not written**; resolve them by id (see `reconcile`) and re-run.
+
+Exit code 0 on success, **1 if any slug conflict was reported** (the rows are still missing), 2
+on error.
 
 ### `reverse-backfill`
 
@@ -138,12 +168,16 @@ favorite-sync reverse-backfill --domain tag --source dev.db --target article-ser
 ```
 
 Exactly `backfill` with source and target swapped: copies `favorite.db -> dev.db` (or
-`comment.db -> dev.db`). Used when rolling back from state C (service authoritative) — rows that
-only exist in the service are inserted into the monolith by natural key; rows already in the
-monolith are untouched (`INSERT OR IGNORE`). For Comment this is the "reverse backfill by `id`"
-of phase-2-comment.md §6; comments *deleted* in state C are not removed from the monolith by this
-command — follow it with `reconcile --authoritative service` (and, if you accept the service's
-view, `--repair to-source --delete-extras`).
+`comment.db -> dev.db`, `article.db -> dev.db`). Used when rolling back from state C (service
+authoritative) — rows that only exist in the service are inserted into the monolith by natural
+key; rows already in the monolith are untouched (`INSERT OR IGNORE`). For Comment and Article this
+is the "reverse backfill by `id`" of phase-2-comment.md / phase-4-article.md §6; rows *deleted* in
+state C are not removed from the monolith by this command — follow it with
+`reconcile --authoritative service` (and, if you accept the service's view,
+`--repair to-source --delete-extras`). For Article, a slug that a post-cutover service row and a
+stale monolith row hold under different ids is reported as a conflict on the monolith side
+(`uniqueConflictsInMonolith`) and the service row is skipped until the monolith row is deleted
+(`--repair to-source --delete-extras`) or fixed by hand.
 
 ### `reconcile`
 
@@ -163,10 +197,17 @@ by the table size). Buckets:
   (`body, article_id, user_id, created_at, updated_at`) is compared value-for-value including the
   SQLite storage class, and each entry lists the differing `columns`, e.g.
   `{"id":"<uuid>","columns":["body"]}`. `divergedTotal` is added for domains with a payload.
-  For `tag` only `tags.name` can diverge; `article_tags` is key-only.
+  For `tag` only `tags.name` can diverge; `article_tags` is key-only. For `article` all seven
+  payload columns (`user_id, slug, title, description, body, created_at, updated_at`) are compared
+  the same way as for `comment`.
 - `duplicateKeysInMonolith` / `duplicateKeysInService` — only for `article_tags`: pairs stored
   more than once on that side. They are **not** counted as drift (the data is present on both
   sides) and no repair removes them.
+- `uniqueConflictsInService` / `uniqueConflictsInMonolith` — only for `articles`: a
+  `missingInService`/`diverged` row whose `slug` is held by a different `id` in the service
+  (resp. an `extraInService`/`diverged` row whose slug is held by a different id in the monolith).
+  Diagnostic — the row is already counted once as missing/extra/diverged; the conflict entry tells
+  you *why* a repair cannot write it and which id is in the way.
 
 Note the report's `monolithCount`/`serviceCount`/`missingInService`/`extraInService` are always
 named from the point of view *source = monolith, target = service*, regardless of `--repair` or
@@ -184,6 +225,11 @@ and `--authoritative service` instead.
 | `--max-repair N` | Abort (exit 2, nothing written) if a repair would touch more than N rows (inserts + updates + deletes). Default `max(1000, 1 % of authoritative rows)` per 05 §4.3; `0` disables the guard. |
 
 After a repair the diff is recomputed; the exit code is 0 only when the *remaining* drift is zero.
+
+For `articles` a repair applies deletes (`--delete-extras`) **first**, then inserts and updates,
+and skips every insert/update whose slug is still held by another id after the deletes (logged as
+`reconcile table=articles skipped=N rows whose unique value is held by another key ...`). Skipped rows remain in the `after` diff, so the exit code
+is 1 and the report shows what is left to resolve by hand.
 
 Report (format of 05 §4.2, plus checksums and, when repairing, a `repair` block):
 
@@ -253,6 +299,25 @@ this order; `summary.drift`/`summary.clean` count tables and `summary.driftRows`
   "summary" : { "drift" : 2, "clean" : 0, "driftRows" : 2, "status" : "DRIFT" }
 ```
 
+With `--domain article` the document has `"domain" : "article"`, `"table" : "articles"`, key
+objects `{ "id" : "<uuid>" }`, the `diverged` bucket of the comment shape and two extra buckets:
+
+```json
+  "tables" : [ {
+    "table" : "articles",
+    "monolithCount" : 1207, "serviceCount" : 1207,
+    "missingInService" : [ { "id" : "7f1c..." } ], "missingInServiceTotal" : 1,
+    "extraInService" : [ { "id" : "c0de..." } ], "extraInServiceTotal" : 1,
+    "diverged" : [ { "id" : "a9e2...", "columns" : [ "slug", "title" ] } ], "divergedTotal" : 1,
+    "uniqueConflictsInService" : [ { "id" : "7f1c...", "column" : "slug", "value" : "how-to-train-your-dragon", "conflictingId" : "c0de..." } ],
+    "uniqueConflictsInServiceTotal" : 1,
+    "uniqueConflictsInMonolith" : [ { "id" : "c0de...", "column" : "slug", "value" : "how-to-train-your-dragon", "conflictingId" : "7f1c..." } ],
+    "uniqueConflictsInMonolithTotal" : 1,
+    "status" : "DRIFT"
+  } ],
+  "summary" : { "drift" : 1, "clean" : 0, "driftRows" : 3, "status" : "DRIFT" }
+```
+
 `--max-repair` is evaluated over the **whole run** (both tables) before anything is written, so a
 mass-drift tag run leaves both tables untouched. The `repair` block's `*After` counters are sums
 over the tables.
@@ -268,6 +333,7 @@ reconcile domain=favorite table=article_favorites phase=before monolith=128431 s
 reconcile domain=comment table=comments phase=before monolith=4213 service=4212 missing=1 extra=0 diverged=1 status=DRIFT
 reconcile domain=tag table=tags phase=before monolith=812 service=812 missing=0 extra=0 diverged=1 status=DRIFT
 reconcile domain=tag table=article_tags phase=before monolith=3907 service=3906 missing=1 extra=0 diverged=0 duplicateKeys=2/0 status=DRIFT
+reconcile domain=article table=articles phase=before monolith=1207 service=1207 missing=1 extra=1 diverged=1 conflicts=1/1 status=DRIFT
 ```
 
 `graceSeconds` is always `0`. `article_favorites` has no timestamp column, and for `comments` the
@@ -281,7 +347,7 @@ in-flight dual-write, not as a defect.
 | Code | Meaning |
 |---|---|
 | 0 | success; for `reconcile`, zero remaining drift |
-| 1 | `reconcile`: drift remains (report-only, or after a repair that was not allowed to delete) |
+| 1 | `reconcile`: drift remains (report-only, or after a repair that was not allowed to delete or was blocked by a slug conflict); `backfill --domain article`: slug conflicts were skipped |
 | 2 | usage error, missing file/table, `--max-repair` guard tripped, SQLite error |
 
 ## Tests
@@ -317,9 +383,25 @@ reported without being drift, identical/empty tables clean, repair to-target (wi
 writes nothing; CLI backfill -> reconcile -> state C writes -> `reverse-backfill` ->
 `reconcile --authoritative service`.
 
-The Phase 1 suites (24 tests) and the Phase 2 suite (17 tests) run unchanged as the
-favorite + comment regression — 41 of the 56 tests. Only one assertion changed: the Phase 2 CLI
-test used `--domain tag` as its example of an *unknown* domain and now uses `--domain article`.
+`ArticleSyncTest` (21, `--domain article`): domain covers only `articles`; backfill copies all
+seven columns with exact timestamp storage class (INTEGER and TEXT) and is idempotent, leaves
+`tags`/`article_tags` untouched, crash after chunk 3 then restart converges, existing target rows
+never overwritten, empty table, slug clash reported as a conflict (row skipped, others inserted,
+CLI exit 1 until resolved); `reverse-backfill` copies service rows back without touching tag
+tables; reconcile detects missing/extra and a divergence in **each** of the seven columns with the
+report shape, timestamps compare as stored (INTEGER vs TEXT of the same instant is drift), empty
+tables clean, repair to-target with and without `--delete-extras` (extras' `article_tags` left in
+place), repair to-source, `--max-repair` writes nothing; slug held by another id is reported on
+both sides, a repair without `--delete-extras` skips it and exits 1, with `--delete-extras` the
+holder goes first and the repair converges, a slug *swap* between two ids is blocked, a slug moving
+to a free value is repaired; CLI backfill -> reconcile (report) -> `--repair to-target
+--delete-extras --max-repair` -> clean, `--help` mentions article; 10k rows backfilled, reconciled
+and repaired.
+
+The Phase 1 suites (24 tests), the Phase 2 suite (17 tests) and the Phase 3 suite (15 tests) run
+unchanged as the favorite + comment + tag regression — 56 of the 77 tests. Only one assertion
+changed: the Phase 2 CLI test used `--domain article` as its example of an *unknown* domain and
+now uses `--domain user`.
 
 ## Design notes / open questions
 
@@ -344,7 +426,20 @@ test used `--domain tag` as its example of an *unknown* domain and now uses `--d
 - **Tag rows are never garbage-collected.** Article update/delete does not touch `tags` or
   `article_tags`, so a tag with no articles is normal, expected state on both sides.
 - **Orphans are not drift.** `comments.article_id` has no FK; comments of deleted articles exist
-  on both sides and compare equal. Reconcile never "cleans up" orphans (05 §7.2).
+  on both sides and compare equal. Reconcile never "cleans up" orphans (05 §7.2). The same holds
+  for `article_tags`/`article_favorites`/`comments` rows of an article that `--repair
+  --delete-extras` removes from `articles`: the monolith's `DELETE /articles/{slug}` does not
+  cascade either, so the tool does not.
+- **Article slug conflicts are resolved by id, by hand.** phase-4-article.md §6: "reconcile
+  conflicts by id first". The tool reports which id holds the slug and refuses to guess whether the
+  monolith's or the service's article is the real one (the only automatic path is
+  `--delete-extras`, which removes a holder the authoritative side does not have at all). A slug
+  swap between two ids that exist on both sides is therefore never auto-repaired.
+- **No `--domain article-bundle`.** Running `tag` and `article` in one process would need either a
+  multi-table domain with a *different* unique-conflict policy per table or a wrapper that runs two
+  `Main.run` calls and merges two JSON reports/exit codes; neither is trivial, and two commands
+  keep the per-domain reports and exit codes exactly as documented. Open question for the
+  orchestrator: add a bundle if operators find two invocations error-prone.
 - **Standalone job reads both files** (05 §9 Q7). The backfill only reads a `.backup` snapshot of
   `dev.db`; `reconcile` reads both live files read-only unless repairing. If "no shared SQLite"
   is enforced strictly, run reconcile against `.backup` copies of both files.

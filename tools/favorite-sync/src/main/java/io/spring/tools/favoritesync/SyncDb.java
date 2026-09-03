@@ -71,6 +71,15 @@ public final class SyncDb {
     }
   }
 
+  public static boolean existsByKey(SyncTable t, Connection c, Row row) throws SQLException {
+    try (PreparedStatement ps = c.prepareStatement(t.existsByKey())) {
+      row.bindKey(ps);
+      try (ResultSet rs = ps.executeQuery()) {
+        return rs.next();
+      }
+    }
+  }
+
   public static long totalChanges(Connection c) throws SQLException {
     try (Statement st = c.createStatement();
         ResultSet rs = st.executeQuery("select total_changes()")) {
