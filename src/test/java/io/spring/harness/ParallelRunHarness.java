@@ -35,7 +35,7 @@ public class ParallelRunHarness {
           "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
   private static final List<String> VOLATILE_FIELDS =
       Collections.unmodifiableList(
-          new ArrayList<>(java.util.Arrays.asList("createdAt", "updatedAt", "cursor")));
+          new ArrayList<>(java.util.Arrays.asList("createdAt", "updatedAt", "cursor", "token")));
   private static final String GOLDEN_ROOT = "golden/";
 
   private final ObjectMapper objectMapper = new ObjectMapper();

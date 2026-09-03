@@ -5,6 +5,7 @@ import com.netflix.graphql.dgs.DgsData;
 import com.netflix.graphql.dgs.InputArgument;
 import graphql.execution.DataFetcherResult;
 import io.spring.api.exception.InvalidAuthenticationException;
+import io.spring.application.user.LoginService;
 import io.spring.application.user.RegisterParam;
 import io.spring.application.user.UpdateUserCommand;
 import io.spring.application.user.UpdateUserParam;
@@ -32,6 +33,7 @@ public class UserMutation {
   private UserRepository userRepository;
   private PasswordEncoder encryptService;
   private UserService userService;
+  private LoginService loginService;
 
   @DgsData(parentType = MUTATION.TYPE_NAME, field = MUTATION.CreateUser)
   public DataFetcherResult<UserResult> createUser(@InputArgument("input") CreateUserInput input) {
@@ -55,8 +57,8 @@ public class UserMutation {
   @DgsData(parentType = MUTATION.TYPE_NAME, field = MUTATION.Login)
   public DataFetcherResult<UserPayload> login(
       @InputArgument("password") String password, @InputArgument("email") String email) {
-    Optional<User> optional = userRepository.findByEmail(email);
-    if (optional.isPresent() && encryptService.matches(password, optional.get().getPassword())) {
+    Optional<User> optional = loginService.login(email, password);
+    if (optional.isPresent()) {
       return DataFetcherResult.<UserPayload>newResult()
           .data(UserPayload.newBuilder().build())
           .localContext(optional.get())

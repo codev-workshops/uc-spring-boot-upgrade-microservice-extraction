@@ -1,0 +1,9 @@
+{
+  "user" : {
+    "bio" : "",
+    "email" : "new@test.com",
+    "image" : "https://static.productionready.io/images/smiley-cyrus.jpg",
+    "token" : "<volatile>",
+    "username" : "newbie"
+  }
+}
