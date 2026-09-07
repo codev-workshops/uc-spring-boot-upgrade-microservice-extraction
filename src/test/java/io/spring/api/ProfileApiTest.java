@@ -71,7 +71,8 @@ public class ProfileApiTest extends TestWithCurrentUser {
         .post("/profiles/{username}/follow", anotherUser.getUsername())
         .prettyPeek()
         .then()
-        .statusCode(200);
+        .statusCode(200)
+        .body("profile.username", equalTo(profileData.getUsername()));
     verify(userRepository).saveRelation(new FollowRelation(user.getId(), anotherUser.getId()));
   }
 
@@ -89,7 +90,8 @@ public class ProfileApiTest extends TestWithCurrentUser {
         .delete("/profiles/{username}/follow", anotherUser.getUsername())
         .prettyPeek()
         .then()
-        .statusCode(200);
+        .statusCode(200)
+        .body("profile.username", equalTo(profileData.getUsername()));
 
     verify(userRepository).removeRelation(eq(followRelation));
   }

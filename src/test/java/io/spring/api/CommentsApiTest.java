@@ -2,9 +2,11 @@ package io.spring.api;
 
 import static io.restassured.module.mockmvc.RestAssuredMockMvc.given;
 import static org.hamcrest.core.IsEqual.equalTo;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.restassured.module.mockmvc.RestAssuredMockMvc;
@@ -24,6 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -88,6 +91,12 @@ public class CommentsApiTest extends TestWithCurrentUser {
         .then()
         .statusCode(201)
         .body("comment.body", equalTo(commentData.getBody()));
+
+    ArgumentCaptor<Comment> captor = ArgumentCaptor.forClass(Comment.class);
+    verify(commentRepository).save(captor.capture());
+    assertEquals("comment content", captor.getValue().getBody());
+    assertEquals(user.getId(), captor.getValue().getUserId());
+    assertEquals(article.getId(), captor.getValue().getArticleId());
   }
 
   @Test
@@ -139,6 +148,8 @@ public class CommentsApiTest extends TestWithCurrentUser {
         .delete("/articles/{slug}/comments/{id}", article.getSlug(), comment.getId())
         .then()
         .statusCode(204);
+
+    verify(commentRepository).remove(eq(comment));
   }
 
   @Test

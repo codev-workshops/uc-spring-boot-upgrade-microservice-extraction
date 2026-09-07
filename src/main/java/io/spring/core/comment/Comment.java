@@ -17,10 +17,14 @@ public class Comment {
   private DateTime createdAt;
 
   public Comment(String body, String userId, String articleId) {
+    this(body, userId, articleId, new DateTime());
+  }
+
+  public Comment(String body, String userId, String articleId, DateTime createdAt) {
     this.id = UUID.randomUUID().toString();
     this.body = body;
     this.userId = userId;
     this.articleId = articleId;
-    this.createdAt = new DateTime();
+    this.createdAt = createdAt;
   }
 }

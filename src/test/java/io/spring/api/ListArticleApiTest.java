@@ -3,6 +3,7 @@ package io.spring.api;
 import static io.restassured.module.mockmvc.RestAssuredMockMvc.given;
 import static io.spring.TestHelper.articleDataFixture;
 import static java.util.Arrays.asList;
+import static org.hamcrest.core.IsEqual.equalTo;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
@@ -48,7 +49,28 @@ public class ListArticleApiTest extends TestWithCurrentUser {
     when(articleQueryService.findRecentArticles(
             eq(null), eq(null), eq(null), eq(new Page(0, 20)), eq(null)))
         .thenReturn(articleDataList);
-    RestAssuredMockMvc.when().get("/articles").prettyPeek().then().statusCode(200);
+    RestAssuredMockMvc.when()
+        .get("/articles")
+        .prettyPeek()
+        .then()
+        .statusCode(200)
+        .body("articlesCount", equalTo(2))
+        .body("articles.size()", equalTo(2));
+  }
+
+  @Test
+  public void should_pass_query_params_to_article_list() throws Exception {
+    ArticleDataList articleDataList = new ArticleDataList(asList(articleDataFixture("1", user)), 1);
+    when(articleQueryService.findRecentArticles(
+            eq("java"), eq("john"), eq("jane"), eq(new Page(5, 10)), eq(null)))
+        .thenReturn(articleDataList);
+    RestAssuredMockMvc.when()
+        .get("/articles?tag=java&author=john&favorited=jane&offset=5&limit=10")
+        .prettyPeek()
+        .then()
+        .statusCode(200)
+        .body("articlesCount", equalTo(1))
+        .body("articles.size()", equalTo(1));
   }
 
   @Test
@@ -70,6 +92,8 @@ public class ListArticleApiTest extends TestWithCurrentUser {
         .get("/articles/feed")
         .prettyPeek()
         .then()
-        .statusCode(200);
+        .statusCode(200)
+        .body("articlesCount", equalTo(2))
+        .body("articles.size()", equalTo(2));
   }
 }

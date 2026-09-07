@@ -140,6 +140,218 @@ public class ArticleQueryServiceTest extends DbTestBase {
         queryService.findRecentArticlesWithCursor(
             null, null, null, new CursorPageParameter<>(null, 20, Direction.PREV), user);
     Assertions.assertEquals(prevArticles.getData().size(), 2);
+    Assertions.assertEquals(article.getId(), prevArticles.getData().get(0).getId());
+    Assertions.assertEquals(anotherArticle.getId(), prevArticles.getData().get(1).getId());
+    Assertions.assertFalse(prevArticles.hasPrevious());
+  }
+
+  @Test
+  public void should_page_article_list_by_cursor_with_limit() {
+    Article older =
+        new Article(
+            "older",
+            "desc",
+            "body",
+            Arrays.asList("test"),
+            user.getId(),
+            new DateTime().minusHours(2));
+    articleRepository.save(older);
+    Article oldest =
+        new Article(
+            "oldest",
+            "desc",
+            "body",
+            Arrays.asList("test"),
+            user.getId(),
+            new DateTime().minusHours(4));
+    articleRepository.save(oldest);
+
+    CursorPager<ArticleData> firstPage =
+        queryService.findRecentArticlesWithCursor(
+            null, null, null, new CursorPageParameter<>(null, 2, Direction.NEXT), user);
+    Assertions.assertEquals(2, firstPage.getData().size());
+    Assertions.assertEquals(article.getId(), firstPage.getData().get(0).getId());
+    Assertions.assertEquals(older.getId(), firstPage.getData().get(1).getId());
+    Assertions.assertTrue(firstPage.hasNext());
+    Assertions.assertFalse(firstPage.hasPrevious());
+
+    CursorPager<ArticleData> secondPage =
+        queryService.findRecentArticlesWithCursor(
+            null,
+            null,
+            null,
+            new CursorPageParameter<>(
+                DateTimeCursor.parse(firstPage.getEndCursor().toString()), 2, Direction.NEXT),
+            user);
+    Assertions.assertEquals(1, secondPage.getData().size());
+    Assertions.assertEquals(oldest.getId(), secondPage.getData().get(0).getId());
+    Assertions.assertFalse(secondPage.hasNext());
+
+    DateTime oldestCursor = DateTimeCursor.parse(secondPage.getStartCursor().toString());
+    CursorPager<ArticleData> prevPage =
+        queryService.findRecentArticlesWithCursor(
+            null, null, null, new CursorPageParameter<>(oldestCursor, 2, Direction.PREV), user);
+    Assertions.assertEquals(2, prevPage.getData().size());
+    Assertions.assertEquals(article.getId(), prevPage.getData().get(0).getId());
+    Assertions.assertEquals(older.getId(), prevPage.getData().get(1).getId());
+    Assertions.assertFalse(prevPage.hasPrevious());
+    Assertions.assertFalse(prevPage.hasNext());
+
+    CursorPager<ArticleData> prevPageWithExtra =
+        queryService.findRecentArticlesWithCursor(
+            null, null, null, new CursorPageParameter<>(oldestCursor, 1, Direction.PREV), user);
+    Assertions.assertEquals(1, prevPageWithExtra.getData().size());
+    Assertions.assertEquals(older.getId(), prevPageWithExtra.getData().get(0).getId());
+    Assertions.assertTrue(prevPageWithExtra.hasPrevious());
+    Assertions.assertFalse(prevPageWithExtra.hasNext());
+  }
+
+  @Test
+  public void should_fill_extra_info_in_cursor_article_list() {
+    User anotherUser = new User("other@email.com", "other", "123", "", "");
+    userRepository.save(anotherUser);
+    userRepository.saveRelation(new FollowRelation(anotherUser.getId(), user.getId()));
+    articleFavoriteRepository.save(new ArticleFavorite(article.getId(), anotherUser.getId()));
+
+    CursorPager<ArticleData> anonymous =
+        queryService.findRecentArticlesWithCursor(
+            null, null, null, new CursorPageParameter<>(null, 20, Direction.NEXT), null);
+    ArticleData anonymousData = anonymous.getData().get(0);
+    Assertions.assertEquals(1, anonymousData.getFavoritesCount());
+    Assertions.assertFalse(anonymousData.isFavorited());
+    Assertions.assertFalse(anonymousData.getProfileData().isFollowing());
+
+    CursorPager<ArticleData> withUser =
+        queryService.findRecentArticlesWithCursor(
+            null, null, null, new CursorPageParameter<>(null, 20, Direction.NEXT), anotherUser);
+    ArticleData articleData = withUser.getData().get(0);
+    Assertions.assertEquals(1, articleData.getFavoritesCount());
+    Assertions.assertTrue(articleData.isFavorited());
+    Assertions.assertTrue(articleData.getProfileData().isFollowing());
+  }
+
+  @Test
+  public void should_fetch_article_by_slug() {
+    User anotherUser = new User("other@email.com", "other", "123", "", "");
+    userRepository.save(anotherUser);
+    userRepository.saveRelation(new FollowRelation(anotherUser.getId(), user.getId()));
+    articleFavoriteRepository.save(new ArticleFavorite(article.getId(), anotherUser.getId()));
+
+    Optional<ArticleData> anonymous = queryService.findBySlug(article.getSlug(), null);
+    Assertions.assertTrue(anonymous.isPresent());
+    Assertions.assertEquals(article.getId(), anonymous.get().getId());
+    Assertions.assertFalse(anonymous.get().isFavorited());
+    Assertions.assertFalse(anonymous.get().getProfileData().isFollowing());
+
+    Optional<ArticleData> optional = queryService.findBySlug(article.getSlug(), anotherUser);
+    Assertions.assertTrue(optional.isPresent());
+    ArticleData fetched = optional.get();
+    Assertions.assertEquals(article.getId(), fetched.getId());
+    Assertions.assertEquals(1, fetched.getFavoritesCount());
+    Assertions.assertTrue(fetched.isFavorited());
+    Assertions.assertTrue(fetched.getProfileData().isFollowing());
+
+    Assertions.assertFalse(queryService.findBySlug("not-exist", user).isPresent());
+  }
+
+  @Test
+  public void should_return_empty_when_article_not_found_by_id() {
+    Assertions.assertFalse(queryService.findById("not-exist", user).isPresent());
+    Assertions.assertFalse(queryService.findById("not-exist", null).isPresent());
+  }
+
+  @Test
+  public void should_fetch_article_by_id_with_following_flag() {
+    User anotherUser = new User("other@email.com", "other", "123", "", "");
+    userRepository.save(anotherUser);
+    userRepository.saveRelation(new FollowRelation(anotherUser.getId(), user.getId()));
+
+    Assertions.assertTrue(
+        queryService.findById(article.getId(), anotherUser).get().getProfileData().isFollowing());
+    Assertions.assertFalse(
+        queryService.findById(article.getId(), user).get().getProfileData().isFollowing());
+
+    Optional<ArticleData> anonymous = queryService.findById(article.getId(), null);
+    Assertions.assertTrue(anonymous.isPresent());
+    Assertions.assertFalse(anonymous.get().isFavorited());
+    Assertions.assertFalse(anonymous.get().getProfileData().isFollowing());
+  }
+
+  @Test
+  public void should_get_user_feed_by_cursor() {
+    User author = new User("author@email.com", "author", "123", "", "");
+    userRepository.save(author);
+    User anotherUser = new User("other@email.com", "other", "123", "", "");
+    userRepository.save(anotherUser);
+    userRepository.saveRelation(new FollowRelation(anotherUser.getId(), author.getId()));
+
+    Article newest =
+        new Article(
+            "newest", "desc", "body", Arrays.asList("test"), author.getId(), new DateTime());
+    articleRepository.save(newest);
+    Article older =
+        new Article(
+            "older",
+            "desc",
+            "body",
+            Arrays.asList("test"),
+            author.getId(),
+            new DateTime().minusHours(2));
+    articleRepository.save(older);
+    Article oldest =
+        new Article(
+            "oldest",
+            "desc",
+            "body",
+            Arrays.asList("test"),
+            author.getId(),
+            new DateTime().minusHours(4));
+    articleRepository.save(oldest);
+    articleFavoriteRepository.save(new ArticleFavorite(newest.getId(), anotherUser.getId()));
+
+    CursorPager<ArticleData> noFollowing =
+        queryService.findUserFeedWithCursor(
+            user, new CursorPageParameter<>(null, 20, Direction.NEXT));
+    Assertions.assertTrue(noFollowing.getData().isEmpty());
+    Assertions.assertFalse(noFollowing.hasNext());
+
+    CursorPager<ArticleData> firstPage =
+        queryService.findUserFeedWithCursor(
+            anotherUser, new CursorPageParameter<>(null, 2, Direction.NEXT));
+    Assertions.assertEquals(2, firstPage.getData().size());
+    Assertions.assertEquals(newest.getId(), firstPage.getData().get(0).getId());
+    Assertions.assertEquals(older.getId(), firstPage.getData().get(1).getId());
+    Assertions.assertTrue(firstPage.hasNext());
+    Assertions.assertFalse(firstPage.hasPrevious());
+    ArticleData first = firstPage.getData().get(0);
+    Assertions.assertEquals(1, first.getFavoritesCount());
+    Assertions.assertTrue(first.isFavorited());
+    Assertions.assertTrue(first.getProfileData().isFollowing());
+
+    CursorPager<ArticleData> secondPage =
+        queryService.findUserFeedWithCursor(
+            anotherUser,
+            new CursorPageParameter<>(
+                DateTimeCursor.parse(firstPage.getEndCursor().toString()), 2, Direction.NEXT));
+    Assertions.assertEquals(1, secondPage.getData().size());
+    Assertions.assertEquals(oldest.getId(), secondPage.getData().get(0).getId());
+    Assertions.assertFalse(secondPage.hasNext());
+
+    DateTime oldestCursor = DateTimeCursor.parse(secondPage.getStartCursor().toString());
+    CursorPager<ArticleData> prevPage =
+        queryService.findUserFeedWithCursor(
+            anotherUser, new CursorPageParameter<>(oldestCursor, 2, Direction.PREV));
+    Assertions.assertEquals(2, prevPage.getData().size());
+    Assertions.assertEquals(newest.getId(), prevPage.getData().get(0).getId());
+    Assertions.assertEquals(older.getId(), prevPage.getData().get(1).getId());
+    Assertions.assertFalse(prevPage.hasPrevious());
+
+    CursorPager<ArticleData> prevPageWithExtra =
+        queryService.findUserFeedWithCursor(
+            anotherUser, new CursorPageParameter<>(oldestCursor, 1, Direction.PREV));
+    Assertions.assertEquals(1, prevPageWithExtra.getData().size());
+    Assertions.assertEquals(older.getId(), prevPageWithExtra.getData().get(0).getId());
+    Assertions.assertTrue(prevPageWithExtra.hasPrevious());
   }
 
   @Test

@@ -5,6 +5,7 @@ plugins {
     id "com.netflix.dgs.codegen" version "5.0.6"
     id "com.diffplug.spotless" version "6.2.1"
     id 'jacoco'
+    id 'info.solidsoft.pitest' version '1.9.11'
 }
 
 version = '0.0.1-SNAPSHOT'
@@ -115,6 +116,38 @@ tasks.register('seleniumTest', Test) {
 	
 	// Don't fail the build on test failures (for CI reporting)
 	ignoreFailures = false
+}
+
+pitest {
+    pitestVersion = '1.15.8'
+    junit5PluginVersion = '1.1.2'
+    targetClasses = [
+        'io.spring.api.*',
+        'io.spring.application.*',
+        'io.spring.core.service.*'
+    ]
+    excludedClasses = [
+        'io.spring.api.security.*',
+        'io.spring.application.data.*',
+        'io.spring.application.*Param',
+        'io.spring.application.*Constraint',
+        'io.spring.application.user.UpdateUserCommand'
+    ]
+    targetTests = [
+        'io.spring.api.*',
+        'io.spring.application.*',
+        'io.spring.core.*',
+        'io.spring.infrastructure.*'
+    ]
+    excludedTestClasses = ['io.spring.selenium.*']
+    mutators = ['DEFAULTS']
+    threads = Math.max(1, Runtime.runtime.availableProcessors() - 1)
+    outputFormats = ['HTML', 'XML']
+    timestampedReports = false
+    reportDir = layout.buildDirectory.dir('reports/pitest').get().asFile
+    timeoutFactor = 2.0
+    timeoutConstInMillis = 20000
+    verbose = false
 }
 
 tasks.named('clean') {
