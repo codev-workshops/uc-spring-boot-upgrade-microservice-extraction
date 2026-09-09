@@ -1,5 +1,6 @@
 package io.spring.application.user;
 
+import io.spring.api.observability.BusinessMetrics;
 import io.spring.core.user.User;
 import io.spring.core.user.UserRepository;
 import java.lang.annotation.Retention;
@@ -20,15 +21,18 @@ public class UserService {
   private UserRepository userRepository;
   private String defaultImage;
   private PasswordEncoder passwordEncoder;
+  private BusinessMetrics businessMetrics;
 
   @Autowired
   public UserService(
       UserRepository userRepository,
       @Value("${image.default}") String defaultImage,
-      PasswordEncoder passwordEncoder) {
+      PasswordEncoder passwordEncoder,
+      BusinessMetrics businessMetrics) {
     this.userRepository = userRepository;
     this.defaultImage = defaultImage;
     this.passwordEncoder = passwordEncoder;
+    this.businessMetrics = businessMetrics;
   }
 
   public User createUser(@Valid RegisterParam registerParam) {
@@ -40,6 +44,7 @@ public class UserService {
             "",
             defaultImage);
     userRepository.save(user);
+    businessMetrics.userRegistered();
     return user;
   }
 

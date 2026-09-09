@@ -1,5 +1,6 @@
 package io.spring.application.article;
 
+import io.spring.api.observability.BusinessMetrics;
 import io.spring.core.article.Article;
 import io.spring.core.article.ArticleRepository;
 import io.spring.core.user.User;
@@ -14,6 +15,7 @@ import org.springframework.validation.annotation.Validated;
 public class ArticleCommandService {
 
   private ArticleRepository articleRepository;
+  private BusinessMetrics businessMetrics;
 
   public Article createArticle(@Valid NewArticleParam newArticleParam, User creator) {
     Article article =
@@ -24,6 +26,7 @@ public class ArticleCommandService {
             newArticleParam.getTagList(),
             creator.getId());
     articleRepository.save(article);
+    businessMetrics.articleCreated();
     return article;
   }
 
@@ -33,6 +36,7 @@ public class ArticleCommandService {
         updateArticleParam.getDescription(),
         updateArticleParam.getBody());
     articleRepository.save(article);
+    businessMetrics.articleUpdated();
     return article;
   }
 }

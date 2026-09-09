@@ -4,6 +4,7 @@ import static org.springframework.web.bind.annotation.RequestMethod.POST;
 
 import com.fasterxml.jackson.annotation.JsonRootName;
 import io.spring.api.exception.InvalidAuthenticationException;
+import io.spring.api.observability.BusinessMetrics;
 import io.spring.application.UserQueryService;
 import io.spring.application.data.UserData;
 import io.spring.application.data.UserWithToken;
@@ -35,6 +36,7 @@ public class UsersApi {
   private PasswordEncoder passwordEncoder;
   private JwtService jwtService;
   private UserService userService;
+  private BusinessMetrics businessMetrics;
 
   @RequestMapping(path = "/users", method = POST)
   public ResponseEntity createUser(@Valid @RequestBody RegisterParam registerParam) {
@@ -49,10 +51,12 @@ public class UsersApi {
     Optional<User> optional = userRepository.findByEmail(loginParam.getEmail());
     if (optional.isPresent()
         && passwordEncoder.matches(loginParam.getPassword(), optional.get().getPassword())) {
+      businessMetrics.loginSucceeded();
       UserData userData = userQueryService.findById(optional.get().getId()).get();
       return ResponseEntity.ok(
           userResponse(new UserWithToken(userData, jwtService.toToken(optional.get()))));
     } else {
+      businessMetrics.loginFailed();
       throw new InvalidAuthenticationException();
     }
   }

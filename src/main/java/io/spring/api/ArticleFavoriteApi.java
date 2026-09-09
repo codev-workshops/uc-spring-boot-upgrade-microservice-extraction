@@ -1,6 +1,7 @@
 package io.spring.api;
 
 import io.spring.api.exception.ResourceNotFoundException;
+import io.spring.api.observability.BusinessMetrics;
 import io.spring.application.ArticleQueryService;
 import io.spring.application.data.ArticleData;
 import io.spring.core.article.Article;
@@ -25,6 +26,7 @@ public class ArticleFavoriteApi {
   private ArticleFavoriteRepository articleFavoriteRepository;
   private ArticleRepository articleRepository;
   private ArticleQueryService articleQueryService;
+  private BusinessMetrics businessMetrics;
 
   @PostMapping
   public ResponseEntity favoriteArticle(
@@ -33,6 +35,7 @@ public class ArticleFavoriteApi {
         articleRepository.findBySlug(slug).orElseThrow(ResourceNotFoundException::new);
     ArticleFavorite articleFavorite = new ArticleFavorite(article.getId(), user.getId());
     articleFavoriteRepository.save(articleFavorite);
+    businessMetrics.articleFavorited();
     return responseArticleData(articleQueryService.findBySlug(slug, user).get());
   }
 
@@ -46,6 +49,7 @@ public class ArticleFavoriteApi {
         .ifPresent(
             favorite -> {
               articleFavoriteRepository.remove(favorite);
+              businessMetrics.articleUnfavorited();
             });
     return responseArticleData(articleQueryService.findBySlug(slug, user).get());
   }

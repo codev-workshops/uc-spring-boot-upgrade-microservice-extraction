@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import io.restassured.module.mockmvc.RestAssuredMockMvc;
 import io.spring.JacksonCustomizations;
+import io.spring.api.observability.BusinessMetrics;
 import io.spring.api.security.WebSecurityConfig;
 import io.spring.application.CommentQueryService;
 import io.spring.application.data.CommentData;
@@ -31,8 +32,9 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(CommentsApi.class)
-@Import({WebSecurityConfig.class, JacksonCustomizations.class})
+@Import({BusinessMetrics.class, WebSecurityConfig.class, JacksonCustomizations.class})
 public class CommentsApiTest extends TestWithCurrentUser {
+  @MockBean private BusinessMetrics businessMetrics;
 
   @MockBean private ArticleRepository articleRepository;
 

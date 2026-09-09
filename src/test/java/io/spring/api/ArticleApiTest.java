@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import io.restassured.module.mockmvc.RestAssuredMockMvc;
 import io.spring.JacksonCustomizations;
 import io.spring.TestHelper;
+import io.spring.api.observability.BusinessMetrics;
 import io.spring.api.security.WebSecurityConfig;
 import io.spring.application.ArticleQueryService;
 import io.spring.application.article.ArticleCommandService;
@@ -35,8 +36,9 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest({ArticleApi.class})
-@Import({WebSecurityConfig.class, JacksonCustomizations.class})
+@Import({BusinessMetrics.class, WebSecurityConfig.class, JacksonCustomizations.class})
 public class ArticleApiTest extends TestWithCurrentUser {
+  @MockBean private BusinessMetrics businessMetrics;
   @Autowired private MockMvc mvc;
 
   @MockBean private ArticleQueryService articleQueryService;

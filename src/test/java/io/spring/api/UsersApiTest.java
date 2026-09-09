@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import io.restassured.module.mockmvc.RestAssuredMockMvc;
 import io.spring.JacksonCustomizations;
+import io.spring.api.observability.BusinessMetrics;
 import io.spring.api.security.WebSecurityConfig;
 import io.spring.application.UserQueryService;
 import io.spring.application.data.UserData;
@@ -38,6 +39,7 @@ import org.springframework.test.web.servlet.MockMvc;
   JacksonCustomizations.class
 })
 public class UsersApiTest {
+  @MockBean private BusinessMetrics businessMetrics;
   @Autowired private MockMvc mvc;
 
   @MockBean private UserRepository userRepository;

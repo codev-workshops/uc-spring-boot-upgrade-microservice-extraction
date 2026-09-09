@@ -1,6 +1,7 @@
 package io.spring.api;
 
 import io.spring.api.exception.ResourceNotFoundException;
+import io.spring.api.observability.BusinessMetrics;
 import io.spring.application.ProfileQueryService;
 import io.spring.application.data.ProfileData;
 import io.spring.core.user.FollowRelation;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProfileApi {
   private ProfileQueryService profileQueryService;
   private UserRepository userRepository;
+  private BusinessMetrics businessMetrics;
 
   @GetMapping
   public ResponseEntity getProfile(
@@ -43,6 +45,7 @@ public class ProfileApi {
             target -> {
               FollowRelation followRelation = new FollowRelation(user.getId(), target.getId());
               userRepository.saveRelation(followRelation);
+              businessMetrics.userFollowed();
               return profileResponse(profileQueryService.findByUsername(username, user).get());
             })
         .orElseThrow(ResourceNotFoundException::new);
@@ -59,6 +62,7 @@ public class ProfileApi {
           .map(
               relation -> {
                 userRepository.removeRelation(relation);
+                businessMetrics.userUnfollowed();
                 return profileResponse(profileQueryService.findByUsername(username, user).get());
               })
           .orElseThrow(ResourceNotFoundException::new);
