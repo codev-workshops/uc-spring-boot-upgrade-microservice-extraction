@@ -32,3 +32,7 @@ frontend/.next/
 frontend/out/
 frontend/.env*.local
 frontend/.git/
+
+### k6 load test output ###
+load-tests/reports/*
+!load-tests/reports/.gitkeep
