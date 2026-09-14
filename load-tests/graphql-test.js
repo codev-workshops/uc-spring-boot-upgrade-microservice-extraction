@@ -6,6 +6,23 @@ import { htmlReport } from 'https://raw.githubusercontent.com/benc-uk/k6-reporte
 import { textSummary } from 'https://jslib.k6.io/k6-summary/0.1.0/index.js';
 import { BASE_URL, VUS, DURATION, seed, pick } from './lib/setup.js';
 
+const OPERATIONS = ['articles', 'articlesWithTag', 'articlesByAuthor', 'feed', 'profile', 'article', 'tags', 'me'];
+const PAGED_OPERATIONS = ['articles', 'articlesWithTag', 'articlesByAuthor', 'feed', 'profile'];
+// Page sizes to vary N+1 fan-out (each node triggers author/comments/Comment.author resolvers).
+const PAGE_SIZES = [5, 10, 20];
+
+// k6 only reports per-tag sub-metrics in the summary when a threshold references them.
+const perOperationThresholds = {};
+for (const op of OPERATIONS) {
+  perOperationThresholds[`graphql_operation_latency{operation:${op}}`] = ['p(95)<2000'];
+  perOperationThresholds[`graphql_operation_requests{operation:${op}}`] = ['count>=0'];
+}
+for (const op of PAGED_OPERATIONS) {
+  for (const n of PAGE_SIZES) {
+    perOperationThresholds[`graphql_operation_latency{operation:${op},page_size:${n}}`] = ['p(95)<2000'];
+  }
+}
+
 export const options = {
   scenarios: {
     graphql: {
@@ -22,6 +39,7 @@ export const options = {
   thresholds: {
     http_req_failed: ['rate<0.05'],
     graphql_errors: ['rate<0.05'],
+    ...perOperationThresholds,
   },
   summaryTrendStats: ['avg', 'min', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'],
 };
@@ -29,9 +47,6 @@ export const options = {
 const opLatency = new Trend('graphql_operation_latency', true);
 const opRequests = new Counter('graphql_operation_requests');
 const opErrors = new Rate('graphql_errors');
-
-// Page sizes to vary N+1 fan-out (each node triggers author/comments/Comment.author resolvers).
-const PAGE_SIZES = [5, 10, 20];
 
 // Nested article selection that triggers Article.author, Article.comments and Comment.author per node.
 const ARTICLE_NODE = `

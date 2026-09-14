@@ -6,6 +6,29 @@ import { htmlReport } from 'https://raw.githubusercontent.com/benc-uk/k6-reporte
 import { textSummary } from 'https://jslib.k6.io/k6-summary/0.1.0/index.js';
 import { BASE_URL, VUS, DURATION, seed, authHeaders, pick } from './lib/setup.js';
 
+const ENDPOINTS = [
+  'GET /articles',
+  'GET /articles?tag',
+  'GET /articles?author',
+  'GET /articles?favorited',
+  'GET /articles/{slug}',
+  'GET /articles/{slug}/comments',
+  'GET /profiles/{username}',
+  'GET /tags',
+  'GET /articles/feed',
+  'POST /articles',
+  'POST /articles/{slug}/comments',
+  'POST /articles/{slug}/favorite',
+  'POST /profiles/{username}/follow',
+];
+
+// k6 only reports per-tag sub-metrics in the summary when a threshold references them.
+const perEndpointThresholds = {};
+for (const e of ENDPOINTS) {
+  perEndpointThresholds[`rest_endpoint_latency{endpoint:${e}}`] = ['p(95)<2000'];
+  perEndpointThresholds[`rest_endpoint_requests{endpoint:${e}}`] = ['count>=0'];
+}
+
 export const options = {
   scenarios: {
     rest: {
@@ -22,6 +45,7 @@ export const options = {
   thresholds: {
     http_req_failed: ['rate<0.05'],
     'http_req_duration{group:read}': ['p(95)<1500'],
+    ...perEndpointThresholds,
   },
   summaryTrendStats: ['avg', 'min', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'],
 };
