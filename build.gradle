@@ -5,9 +5,9 @@ plugins {
     id "com.netflix.dgs.codegen" version "5.0.6"
     id "com.diffplug.spotless" version "6.2.1"
     id 'jacoco'
+    id 'net.researchgate.release' version '3.0.2'
 }
 
-version = '0.0.1-SNAPSHOT'
 sourceCompatibility = '11'
 targetCompatibility = '11'
 
@@ -116,6 +116,25 @@ tasks.register('seleniumTest', Test) {
 	// Don't fail the build on test failures (for CI reporting)
 	ignoreFailures = false
 }
+
+release {
+    failOnCommitNeeded = true
+    failOnPublishNeeded = false
+    failOnSnapshotDependencies = false
+    failOnUnversionedFiles = true
+    failOnUpdateNeeded = true
+    preTagCommitMessage = 'chore(release): '
+    tagCommitMessage = 'chore(release): tag '
+    newVersionCommitMessage = 'chore(release): prepare next development iteration '
+    tagTemplate = 'v${version}'
+    versionPropertyFile = 'gradle.properties'
+    git {
+        requireBranch.set('main')
+        pushToRemote.set('origin')
+    }
+}
+
+afterReleaseBuild.dependsOn bootJar
 
 tasks.named('clean') {
     doFirst {

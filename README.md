@@ -121,3 +121,19 @@ Use spotless for code format.
 # Help
 
 Please fork and PR to improve the project.
+
+## Releasing
+
+Versions follow [Semantic Versioning](https://semver.org) and live in `gradle.properties`.
+Releases are cut from `main` with the Gradle release plugin:
+
+```bash
+./gradlew release                                            # interactive: strips -SNAPSHOT, tags vX.Y.Z, bumps to next -SNAPSHOT
+./gradlew release -Prelease.useAutomaticVersion=true \
+  -Prelease.releaseVersion=1.2.0 -Prelease.newVersion=1.3.0-SNAPSHOT   # non-interactive
+```
+
+Pushing the `vX.Y.Z` tag triggers `.github/workflows/release.yml`, which builds the
+Spring Boot JAR, creates a GitHub Release (body taken from the matching `CHANGELOG.md`
+section) and attaches the JAR plus `SHA256SUMS.txt`. Record changes under `[Unreleased]`
+in `CHANGELOG.md` before releasing.
