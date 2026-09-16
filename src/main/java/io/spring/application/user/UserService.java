@@ -1,5 +1,6 @@
 package io.spring.application.user;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import io.spring.core.user.User;
 import io.spring.core.user.UserRepository;
 import java.lang.annotation.Retention;
@@ -20,15 +21,18 @@ public class UserService {
   private UserRepository userRepository;
   private String defaultImage;
   private PasswordEncoder passwordEncoder;
+  private MeterRegistry meterRegistry;
 
   @Autowired
   public UserService(
       UserRepository userRepository,
       @Value("${image.default}") String defaultImage,
-      PasswordEncoder passwordEncoder) {
+      PasswordEncoder passwordEncoder,
+      MeterRegistry meterRegistry) {
     this.userRepository = userRepository;
     this.defaultImage = defaultImage;
     this.passwordEncoder = passwordEncoder;
+    this.meterRegistry = meterRegistry;
   }
 
   public User createUser(@Valid RegisterParam registerParam) {
@@ -40,6 +44,7 @@ public class UserService {
             "",
             defaultImage);
     userRepository.save(user);
+    meterRegistry.counter("conduit.users.registered").increment();
     return user;
   }
 
@@ -53,6 +58,7 @@ public class UserService {
         updateUserParam.getBio(),
         updateUserParam.getImage());
     userRepository.save(user);
+    meterRegistry.counter("conduit.users.updated").increment();
   }
 }
 

@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.restassured.module.mockmvc.RestAssuredMockMvc;
 import io.spring.JacksonCustomizations;
 import io.spring.api.security.WebSecurityConfig;
@@ -31,7 +32,8 @@ import org.springframework.test.web.servlet.MockMvc;
   JacksonCustomizations.class,
   UserService.class,
   ValidationAutoConfiguration.class,
-  BCryptPasswordEncoder.class
+  BCryptPasswordEncoder.class,
+  SimpleMeterRegistry.class
 })
 public class CurrentUserApiTest extends TestWithCurrentUser {
 
