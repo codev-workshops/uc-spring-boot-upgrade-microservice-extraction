@@ -9,6 +9,13 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  GRADLE_OPTS: -Dorg.gradle.daemon=false
+
 jobs:
   build:
     name: Build & Test (JDK 11)
@@ -21,7 +28,16 @@ jobs:
         with:
           distribution: temurin
           java-version: '11'
-          cache: gradle
+
+      # Caches the Gradle wrapper distribution, dependency jars, transforms and the
+      # local build cache (task outputs). Only pushes to develop/main write the cache;
+      # PR builds read it, so cache entries stay small and deterministic.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+          cache-cleanup: on-success
+          add-job-summary: on-failure
 
       - name: Verify JDK version
         run: |
@@ -32,7 +48,7 @@ jobs:
       # but the pre-existing 80% gate is skipped per AGENTS.md.
       # seleniumTest is a separate task and is intentionally not part of this gate.
       - name: Build (unit tests, Spotless, JaCoCo report)
-        run: ./gradlew build -x jacocoTestCoverageVerification --no-daemon
+        run: ./gradlew build -x jacocoTestCoverageVerification --build-cache
 
       - name: Coverage summary
         if: always()
@@ -59,9 +75,17 @@ jobs:
             build/test-results/
           if-no-files-found: warn
 
+      - name: Upload application jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: build/libs/*.jar
+          retention-days: 1
+
   dependency-scan:
     name: Dependency scan (non-blocking)
     runs-on: ubuntu-latest
+    needs: build
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -71,14 +95,32 @@ jobs:
         with:
           distribution: temurin
           java-version: '11'
-          cache: gradle
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Download application jar
+        uses: actions/download-artifact@v4
+        with:
+          name: app-jar
+          path: build/libs
 
       - name: Resolve runtime dependencies
         run: |
           mkdir -p build/dependency-scan
-          ./gradlew dependencies --configuration runtimeClasspath --no-daemon \
+          ./gradlew dependencies --configuration runtimeClasspath \
             > build/dependency-scan/runtime-dependencies.txt
-          ./gradlew bootJar --no-daemon
+
+      # The NVD database download dominates scan time; cache it between runs.
+      - name: Cache OWASP Dependency-Check data
+        uses: actions/cache@v4
+        with:
+          path: ~/.dependency-check/data
+          key: dependency-check-data-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            dependency-check-data-${{ runner.os }}-
 
       - name: OWASP Dependency-Check
         uses: dependency-check/Dependency-Check_Action@main
@@ -90,6 +132,7 @@ jobs:
           out: build/dependency-scan
           args: >-
             --failOnCVSS 11
+            --data /github/home/.dependency-check/data
             ${{ secrets.NVD_API_KEY != '' && format('--nvdApiKey {0}', secrets.NVD_API_KEY) || '' }}
 
       - name: Upload dependency reports
