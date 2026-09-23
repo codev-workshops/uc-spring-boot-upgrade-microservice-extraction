@@ -2,7 +2,7 @@
 
 ## Repository Purpose
 
-Spring Boot 2.6.3 / Java 11 monolith implementing the RealWorld blogging platform (Conduit). 4 domain contexts: articles/tags, comments, favorites, users/profiles. REST and GraphQL (DGS) APIs, MyBatis persistence with SQLite, Flyway migrations, 27 test files with an 80% JaCoCo coverage gate.
+Spring Boot 2.6.3 / Java 11 monolith implementing the RealWorld blogging platform (Conduit). 4 domain contexts: articles/tags, comments, favorites, users/profiles. REST API (the former GraphQL/DGS layer was consolidated onto REST; see docs/consolidation/), MyBatis persistence with SQLite, Flyway migrations, 27 test files with an 80% JaCoCo coverage gate.
 
 ## Microservice Extraction Standards
 
