@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonRootName;
 import io.spring.api.exception.NoAuthorizationException;
 import io.spring.api.exception.ResourceNotFoundException;
 import io.spring.application.CommentQueryService;
+import io.spring.application.CursorPager;
 import io.spring.application.data.CommentData;
 import io.spring.core.article.Article;
 import io.spring.core.article.ArticleRepository;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -48,6 +50,24 @@ public class CommentsApi {
     commentRepository.save(comment);
     return ResponseEntity.status(201)
         .body(commentResponse(commentQueryService.findById(comment.getId(), user).get()));
+  }
+
+  @GetMapping(params = "first")
+  public ResponseEntity getCommentsNextPage(
+      @PathVariable("slug") String slug,
+      @RequestParam("first") int first,
+      @RequestParam(value = "after", required = false) String after,
+      @AuthenticationPrincipal User user) {
+    return getCommentsWithCursor(slug, first, after, null, null, user);
+  }
+
+  @GetMapping(params = {"last", "!first"})
+  public ResponseEntity getCommentsPreviousPage(
+      @PathVariable("slug") String slug,
+      @RequestParam("last") int last,
+      @RequestParam(value = "before", required = false) String before,
+      @AuthenticationPrincipal User user) {
+    return getCommentsWithCursor(slug, null, null, last, before, user);
   }
 
   @GetMapping
@@ -82,6 +102,16 @@ public class CommentsApi {
               return ResponseEntity.noContent().build();
             })
         .orElseThrow(ResourceNotFoundException::new);
+  }
+
+  private ResponseEntity getCommentsWithCursor(
+      String slug, Integer first, String after, Integer last, String before, User user) {
+    Article article =
+        articleRepository.findBySlug(slug).orElseThrow(ResourceNotFoundException::new);
+    CursorPager<CommentData> comments =
+        commentQueryService.findByArticleIdWithCursor(
+            article.getId(), user, CursorPageResponse.pageParameter(first, after, last, before));
+    return ResponseEntity.ok(CursorPageResponse.of("comments", comments));
   }
 
   private Map<String, Object> commentResponse(CommentData commentData) {
