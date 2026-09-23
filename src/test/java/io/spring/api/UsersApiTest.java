@@ -1,9 +1,13 @@
 package io.spring.api;
 
 import static io.restassured.module.mockmvc.RestAssuredMockMvc.given;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.core.IsEqual.equalTo;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -12,14 +16,21 @@ import io.spring.JacksonCustomizations;
 import io.spring.api.security.WebSecurityConfig;
 import io.spring.application.UserQueryService;
 import io.spring.application.data.UserData;
+import io.spring.application.user.RegisterParam;
 import io.spring.application.user.UserService;
 import io.spring.core.service.JwtService;
 import io.spring.core.user.User;
 import io.spring.core.user.UserRepository;
 import io.spring.infrastructure.mybatis.readservice.UserReadService;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import javax.validation.ConstraintViolation;
+import javax.validation.ConstraintViolationException;
+import javax.validation.Path;
+import javax.validation.constraints.Email;
+import javax.validation.metadata.ConstraintDescriptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -170,6 +181,79 @@ public class UsersApiTest {
         .then()
         .statusCode(422)
         .body("errors.email[0]", equalTo("duplicated email"));
+  }
+
+  @Test
+  public void should_return_422_with_errors_map_for_every_invalid_register_field()
+      throws Exception {
+    Map<String, Object> param =
+        new HashMap<String, Object>() {
+          {
+            put(
+                "user",
+                new HashMap<String, Object>() {
+                  {
+                    put("email", "not-an-email");
+                    put("password", "");
+                    put("username", "");
+                  }
+                });
+          }
+        };
+
+    given()
+        .contentType("application/json")
+        .body(param)
+        .when()
+        .post("/users")
+        .then()
+        .statusCode(422)
+        .contentType("application/json")
+        .body("keySet()", contains("errors"))
+        .body("errors.keySet()", containsInAnyOrder("email", "username", "password"))
+        .body("errors.email", contains("should be an email"))
+        .body("errors.username", contains("can't be empty"))
+        .body("errors.password", contains("can't be empty"));
+
+    verify(userService, never()).createUser(any());
+  }
+
+  @Test
+  public void should_map_service_constraint_violation_to_422_errors_map() throws Exception {
+    String email = "john@jacob.com";
+    String username = "johnjacob";
+    when(userRepository.findByEmail(any())).thenReturn(Optional.empty());
+    when(userRepository.findByUsername(any())).thenReturn(Optional.empty());
+    ConstraintViolationException serviceError =
+        new ConstraintViolationException(
+            Collections.singleton(violation("createUser.registerParam.email", "duplicated email")));
+    when(userService.createUser(any())).thenThrow(serviceError);
+
+    given()
+        .contentType("application/json")
+        .body(prepareRegisterParameter(email, username))
+        .when()
+        .post("/users")
+        .then()
+        .statusCode(422)
+        .body("errors.keySet()", contains("email"))
+        .body("errors.email", contains("duplicated email"));
+  }
+
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  private static ConstraintViolation<?> violation(String path, String message)
+      throws NoSuchFieldException {
+    ConstraintViolation<RegisterParam> violation = mock(ConstraintViolation.class);
+    Path propertyPath = mock(Path.class);
+    when(propertyPath.toString()).thenReturn(path);
+    ConstraintDescriptor descriptor = mock(ConstraintDescriptor.class);
+    when(descriptor.getAnnotation())
+        .thenReturn(RegisterParam.class.getDeclaredField("email").getAnnotation(Email.class));
+    when(violation.getRootBeanClass()).thenReturn(RegisterParam.class);
+    when(violation.getPropertyPath()).thenReturn(propertyPath);
+    when(violation.getConstraintDescriptor()).thenReturn(descriptor);
+    when(violation.getMessage()).thenReturn(message);
+    return violation;
   }
 
   private HashMap<String, Object> prepareRegisterParameter(

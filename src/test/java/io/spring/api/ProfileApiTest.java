@@ -93,4 +93,31 @@ public class ProfileApiTest extends TestWithCurrentUser {
 
     verify(userRepository).removeRelation(eq(followRelation));
   }
+
+  @Test
+  public void should_get_404_for_unknown_profile() throws Exception {
+    when(profileQueryService.findByUsername(eq("nobody"), eq(null))).thenReturn(Optional.empty());
+    RestAssuredMockMvc.when().get("/profiles/{username}", "nobody").then().statusCode(404);
+  }
+
+  @Test
+  public void should_get_401_when_follow_without_login() throws Exception {
+    given()
+        .when()
+        .post("/profiles/{username}/follow", profileData.getUsername())
+        .then()
+        .statusCode(401);
+  }
+
+  @Test
+  public void should_get_404_when_unfollow_user_not_followed() throws Exception {
+    when(userRepository.findRelation(eq(user.getId()), eq(anotherUser.getId())))
+        .thenReturn(Optional.empty());
+    given()
+        .header("Authorization", "Token " + token)
+        .when()
+        .delete("/profiles/{username}/follow", profileData.getUsername())
+        .then()
+        .statusCode(404);
+  }
 }
