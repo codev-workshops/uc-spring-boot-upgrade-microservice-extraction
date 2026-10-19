@@ -17,6 +17,9 @@ The GraphQL schema is https://github.com/gothinkster/spring-boot-realworld-examp
 ![](graphql-schema.png)
 
 And this implementation is using [dgs-framework](https://github.com/Netflix/dgs-framework) which is a quite new java graphql server framework.
+
+**Deprecated:** GraphQL is deprecated in favor of REST. GraphQL responses include `Deprecation` and `Sunset` headers. Set `feature.graphql.enabled=false` to make `/graphql`, `/graphiql`, and `/schema.json` return `410 Gone`. The planned sunset date is January 19, 2027.
+
 # How it works
 
 The application uses Spring Boot (Web, Mybatis).
