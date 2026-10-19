@@ -1,6 +1,6 @@
 # Build the schema.
 type Query {
-    article(slug: String!): Article
+    article(slug: String!): Article @deprecated(reason: "GraphQL API is deprecated; use REST GET /articles/{slug}")
     articles(
         first: Int,
         after: String,
@@ -9,33 +9,33 @@ type Query {
         authoredBy: String
         favoritedBy: String
         withTag: String
-    ): ArticlesConnection
-    me: User
-    feed(first: Int, after: String, last: Int, before: String): ArticlesConnection
-    profile(username: String!): ProfilePayload
-    tags: [String]
+    ): ArticlesConnection @deprecated(reason: "GraphQL API is deprecated; use REST GET /articles")
+    me: User @deprecated(reason: "GraphQL API is deprecated; use REST GET /user")
+    feed(first: Int, after: String, last: Int, before: String): ArticlesConnection @deprecated(reason: "GraphQL API is deprecated; use REST GET /articles/feed")
+    profile(username: String!): ProfilePayload @deprecated(reason: "GraphQL API is deprecated; use REST GET /profiles/{username}")
+    tags: [String] @deprecated(reason: "GraphQL API is deprecated; use REST GET /tags")
 }
 
 union UserResult = UserPayload | Error
 
 type Mutation {
     ### User & Profile
-    createUser(input: CreateUserInput): UserResult
-    login(password: String!, email: String!): UserPayload
-    updateUser(changes: UpdateUserInput!): UserPayload
-    followUser(username: String!): ProfilePayload
-    unfollowUser(username: String!): ProfilePayload
+    createUser(input: CreateUserInput): UserResult @deprecated(reason: "GraphQL API is deprecated; use REST POST /users")
+    login(password: String!, email: String!): UserPayload @deprecated(reason: "GraphQL API is deprecated; use REST POST /users/login")
+    updateUser(changes: UpdateUserInput!): UserPayload @deprecated(reason: "GraphQL API is deprecated; use REST PUT /user")
+    followUser(username: String!): ProfilePayload @deprecated(reason: "GraphQL API is deprecated; use REST POST /profiles/{username}/follow")
+    unfollowUser(username: String!): ProfilePayload @deprecated(reason: "GraphQL API is deprecated; use REST DELETE /profiles/{username}/follow")
 
     ### Article
-    createArticle(input: CreateArticleInput!): ArticlePayload
-    updateArticle(slug: String!, changes: UpdateArticleInput!): ArticlePayload
-    favoriteArticle(slug: String!): ArticlePayload
-    unfavoriteArticle(slug: String!): ArticlePayload
-    deleteArticle(slug: String!): DeletionStatus
+    createArticle(input: CreateArticleInput!): ArticlePayload @deprecated(reason: "GraphQL API is deprecated; use REST POST /articles")
+    updateArticle(slug: String!, changes: UpdateArticleInput!): ArticlePayload @deprecated(reason: "GraphQL API is deprecated; use REST PUT /articles/{slug}")
+    favoriteArticle(slug: String!): ArticlePayload @deprecated(reason: "GraphQL API is deprecated; use REST POST /articles/{slug}/favorite")
+    unfavoriteArticle(slug: String!): ArticlePayload @deprecated(reason: "GraphQL API is deprecated; use REST DELETE /articles/{slug}/favorite")
+    deleteArticle(slug: String!): DeletionStatus @deprecated(reason: "GraphQL API is deprecated; use REST DELETE /articles/{slug}")
 
     ### Comment
-    addComment(slug: String!, body: String!): CommentPayload
-    deleteComment(slug: String!, id: ID!): DeletionStatus
+    addComment(slug: String!, body: String!): CommentPayload @deprecated(reason: "GraphQL API is deprecated; use REST POST /articles/{slug}/comments")
+    deleteComment(slug: String!, id: ID!): DeletionStatus @deprecated(reason: "GraphQL API is deprecated; use REST DELETE /articles/{slug}/comments/{id}")
 }
 
 schema {
@@ -174,4 +174,3 @@ type UserPayload {
 type ProfilePayload {
     profile: Profile
 }
-

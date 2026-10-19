@@ -2,6 +2,9 @@ package io.spring.api.security;
 
 import static java.util.Arrays.asList;
 
+import io.spring.graphql.GraphQlDeprecationFilter;
+import io.spring.graphql.GraphQlFeatureProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -12,6 +15,7 @@ import org.springframework.security.config.annotation.web.configuration.WebSecur
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -20,7 +24,14 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 @EnableWebSecurity
+@EnableConfigurationProperties(GraphQlFeatureProperties.class)
 public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
+
+  private final GraphQlFeatureProperties graphQlFeatureProperties;
+
+  public WebSecurityConfig(GraphQlFeatureProperties graphQlFeatureProperties) {
+    this.graphQlFeatureProperties = graphQlFeatureProperties;
+  }
 
   @Bean
   public JwtTokenFilter jwtTokenFilter() {
@@ -62,6 +73,9 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
         .authenticated();
 
     http.addFilterBefore(jwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
+    http.addFilterAfter(
+        new GraphQlDeprecationFilter(graphQlFeatureProperties),
+        AnonymousAuthenticationFilter.class);
   }
 
   @Bean
