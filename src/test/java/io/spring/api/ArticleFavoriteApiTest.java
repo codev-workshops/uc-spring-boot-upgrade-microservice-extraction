@@ -2,7 +2,6 @@ package io.spring.api;
 
 import static io.restassured.module.mockmvc.RestAssuredMockMvc.given;
 import static org.hamcrest.core.IsEqual.equalTo;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -83,7 +82,25 @@ public class ArticleFavoriteApiTest extends TestWithCurrentUser {
         .statusCode(200)
         .body("article.id", equalTo(article.getId()));
 
-    verify(articleFavoriteRepository).save(any());
+    verify(articleFavoriteRepository).save(eq(new ArticleFavorite(article.getId(), user.getId())));
+  }
+
+  @Test
+  public void should_get_404_when_favorite_missing_article() throws Exception {
+    given()
+        .header("Authorization", "Token " + token)
+        .when()
+        .post("/articles/{slug}/favorite", "missing-article")
+        .then()
+        .statusCode(404);
+  }
+
+  @Test
+  public void should_get_401_when_favorite_without_login() throws Exception {
+    RestAssuredMockMvc.when()
+        .post("/articles/{slug}/favorite", article.getSlug())
+        .then()
+        .statusCode(401);
   }
 
   @Test

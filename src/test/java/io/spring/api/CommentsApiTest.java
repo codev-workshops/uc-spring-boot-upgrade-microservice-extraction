@@ -2,9 +2,12 @@ package io.spring.api;
 
 import static io.restassured.module.mockmvc.RestAssuredMockMvc.given;
 import static org.hamcrest.core.IsEqual.equalTo;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.restassured.module.mockmvc.RestAssuredMockMvc;
@@ -24,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -87,7 +91,53 @@ public class CommentsApiTest extends TestWithCurrentUser {
         .post("/articles/{slug}/comments", article.getSlug())
         .then()
         .statusCode(201)
-        .body("comment.body", equalTo(commentData.getBody()));
+        .body("comment.id", equalTo(commentData.getId()))
+        .body("comment.body", equalTo(commentData.getBody()))
+        .body("comment.author.username", equalTo(user.getUsername()));
+
+    ArgumentCaptor<Comment> saved = ArgumentCaptor.forClass(Comment.class);
+    verify(commentRepository).save(saved.capture());
+    assertEquals("comment content", saved.getValue().getBody());
+    assertEquals(user.getId(), saved.getValue().getUserId());
+    assertEquals(article.getId(), saved.getValue().getArticleId());
+  }
+
+  @Test
+  public void should_get_404_when_create_comment_on_missing_article() throws Exception {
+    Map<String, Object> param =
+        new HashMap<String, Object>() {
+          {
+            put(
+                "comment",
+                new HashMap<String, Object>() {
+                  {
+                    put("body", "comment content");
+                  }
+                });
+          }
+        };
+
+    given()
+        .contentType("application/json")
+        .header("Authorization", "Token " + token)
+        .body(param)
+        .when()
+        .post("/articles/{slug}/comments", "missing-article")
+        .then()
+        .statusCode(404);
+
+    verify(commentRepository, never()).save(any());
+  }
+
+  @Test
+  public void should_get_401_when_create_comment_without_login() throws Exception {
+    given()
+        .contentType("application/json")
+        .body("{\"comment\": {\"body\": \"content\"}}")
+        .when()
+        .post("/articles/{slug}/comments", article.getSlug())
+        .then()
+        .statusCode(401);
   }
 
   @Test
@@ -125,7 +175,9 @@ public class CommentsApiTest extends TestWithCurrentUser {
         .prettyPeek()
         .then()
         .statusCode(200)
-        .body("comments[0].id", equalTo(commentData.getId()));
+        .body("comments.size()", equalTo(1))
+        .body("comments[0].id", equalTo(commentData.getId()))
+        .body("comments[0].body", equalTo(commentData.getBody()));
   }
 
   @Test
@@ -139,6 +191,49 @@ public class CommentsApiTest extends TestWithCurrentUser {
         .delete("/articles/{slug}/comments/{id}", article.getSlug(), comment.getId())
         .then()
         .statusCode(204);
+
+    verify(commentRepository).remove(eq(comment));
+  }
+
+  @Test
+  public void should_delete_comment_as_comment_author_on_others_article() throws Exception {
+    User articleAuthor = new User("author@example.com", "author", "123", "", "");
+    Article othersArticle =
+        new Article("other title", "desc", "body", Arrays.asList("java"), articleAuthor.getId());
+    Comment ownComment = new Comment("mine", user.getId(), othersArticle.getId());
+    when(articleRepository.findBySlug(eq(othersArticle.getSlug())))
+        .thenReturn(Optional.of(othersArticle));
+    when(commentRepository.findById(eq(othersArticle.getId()), eq(ownComment.getId())))
+        .thenReturn(Optional.of(ownComment));
+
+    given()
+        .header("Authorization", "Token " + token)
+        .when()
+        .delete("/articles/{slug}/comments/{id}", othersArticle.getSlug(), ownComment.getId())
+        .then()
+        .statusCode(204);
+
+    verify(commentRepository).remove(eq(ownComment));
+  }
+
+  @Test
+  public void should_get_404_when_delete_missing_comment() throws Exception {
+    when(commentRepository.findById(eq(article.getId()), eq("missing")))
+        .thenReturn(Optional.empty());
+
+    given()
+        .header("Authorization", "Token " + token)
+        .when()
+        .delete("/articles/{slug}/comments/{id}", article.getSlug(), "missing")
+        .then()
+        .statusCode(404);
+
+    verify(commentRepository, never()).remove(any());
+  }
+
+  @Test
+  public void should_get_404_when_get_comments_of_missing_article() throws Exception {
+    RestAssuredMockMvc.when().get("/articles/{slug}/comments", "missing").then().statusCode(404);
   }
 
   @Test
@@ -161,5 +256,7 @@ public class CommentsApiTest extends TestWithCurrentUser {
         .delete("/articles/{slug}/comments/{id}", article.getSlug(), comment.getId())
         .then()
         .statusCode(403);
+
+    verify(commentRepository, never()).remove(any());
   }
 }

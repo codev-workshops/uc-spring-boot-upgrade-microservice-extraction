@@ -2,7 +2,6 @@ package io.spring.api;
 
 import static io.restassured.module.mockmvc.RestAssuredMockMvc.given;
 import static org.hamcrest.core.IsEqual.equalTo;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
@@ -48,7 +47,7 @@ public class CurrentUserApiTest extends TestWithCurrentUser {
 
   @Test
   public void should_get_current_user_with_token() throws Exception {
-    when(userQueryService.findById(any())).thenReturn(Optional.of(userData));
+    when(userQueryService.findById(eq(user.getId()))).thenReturn(Optional.of(userData));
 
     given()
         .header("Authorization", "Token " + token)
@@ -115,7 +114,10 @@ public class CurrentUserApiTest extends TestWithCurrentUser {
         .when()
         .put("/user")
         .then()
-        .statusCode(200);
+        .statusCode(200)
+        .body("user.email", equalTo(email))
+        .body("user.username", equalTo(username))
+        .body("user.token", equalTo(token));
   }
 
   @Test
