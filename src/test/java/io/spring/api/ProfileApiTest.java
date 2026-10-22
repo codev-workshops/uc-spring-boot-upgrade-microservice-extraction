@@ -2,7 +2,9 @@ package io.spring.api;
 
 import static io.restassured.module.mockmvc.RestAssuredMockMvc.given;
 import static org.hamcrest.core.IsEqual.equalTo;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -71,7 +73,8 @@ public class ProfileApiTest extends TestWithCurrentUser {
         .post("/profiles/{username}/follow", anotherUser.getUsername())
         .prettyPeek()
         .then()
-        .statusCode(200);
+        .statusCode(200)
+        .body("profile.username", equalTo(anotherUser.getUsername()));
     verify(userRepository).saveRelation(new FollowRelation(user.getId(), anotherUser.getId()));
   }
 
@@ -89,8 +92,52 @@ public class ProfileApiTest extends TestWithCurrentUser {
         .delete("/profiles/{username}/follow", anotherUser.getUsername())
         .prettyPeek()
         .then()
-        .statusCode(200);
+        .statusCode(200)
+        .body("profile.username", equalTo(anotherUser.getUsername()));
 
     verify(userRepository).removeRelation(eq(followRelation));
+  }
+
+  @Test
+  public void should_get_404_for_unknown_profile() throws Exception {
+    when(profileQueryService.findByUsername(eq("nobody"), eq(null))).thenReturn(Optional.empty());
+    RestAssuredMockMvc.when().get("/profiles/{username}", "nobody").then().statusCode(404);
+  }
+
+  @Test
+  public void should_get_404_when_follow_unknown_user() throws Exception {
+    when(userRepository.findByUsername(eq("nobody"))).thenReturn(Optional.empty());
+    given()
+        .header("Authorization", "Token " + token)
+        .when()
+        .post("/profiles/{username}/follow", "nobody")
+        .then()
+        .statusCode(404);
+    verify(userRepository, never()).saveRelation(any());
+  }
+
+  @Test
+  public void should_get_404_when_unfollow_unknown_user() throws Exception {
+    when(userRepository.findByUsername(eq("nobody"))).thenReturn(Optional.empty());
+    given()
+        .header("Authorization", "Token " + token)
+        .when()
+        .delete("/profiles/{username}/follow", "nobody")
+        .then()
+        .statusCode(404);
+    verify(userRepository, never()).removeRelation(any());
+  }
+
+  @Test
+  public void should_get_404_when_unfollow_user_not_followed() throws Exception {
+    when(userRepository.findRelation(eq(user.getId()), eq(anotherUser.getId())))
+        .thenReturn(Optional.empty());
+    given()
+        .header("Authorization", "Token " + token)
+        .when()
+        .delete("/profiles/{username}/follow", anotherUser.getUsername())
+        .then()
+        .statusCode(404);
+    verify(userRepository, never()).removeRelation(any());
   }
 }

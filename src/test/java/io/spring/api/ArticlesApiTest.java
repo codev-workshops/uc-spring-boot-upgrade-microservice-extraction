@@ -68,13 +68,14 @@ public class ArticlesApiTest extends TestWithCurrentUser {
             tagList,
             new ProfileData("userid", user.getUsername(), user.getBio(), user.getImage(), false));
 
-    when(articleCommandService.createArticle(any(), any()))
-        .thenReturn(new Article(title, description, body, tagList, user.getId()));
+    Article createdArticle = new Article(title, description, body, tagList, user.getId());
+    when(articleCommandService.createArticle(any(), any())).thenReturn(createdArticle);
 
     when(articleQueryService.findBySlug(eq(Article.toSlug(title)), any()))
         .thenReturn(Optional.empty());
 
-    when(articleQueryService.findById(any(), any())).thenReturn(Optional.of(articleData));
+    when(articleQueryService.findById(eq(createdArticle.getId()), eq(user)))
+        .thenReturn(Optional.of(articleData));
 
     given()
         .contentType("application/json")

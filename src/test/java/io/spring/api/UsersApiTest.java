@@ -66,7 +66,7 @@ public class UsersApiTest {
     when(jwtService.toToken(any())).thenReturn("123");
     User user = new User(email, username, "123", "", defaultAvatar);
     UserData userData = new UserData(user.getId(), email, username, "", defaultAvatar);
-    when(userReadService.findById(any())).thenReturn(userData);
+    when(userReadService.findById(eq(user.getId()))).thenReturn(userData);
 
     when(userService.createUser(any())).thenReturn(user);
 
@@ -201,7 +201,7 @@ public class UsersApiTest {
     when(userRepository.findByEmail(eq(email))).thenReturn(Optional.of(user));
     when(userReadService.findByUsername(eq(username))).thenReturn(userData);
     when(userReadService.findById(eq(user.getId()))).thenReturn(userData);
-    when(jwtService.toToken(any())).thenReturn("123");
+    when(jwtService.toToken(eq(user))).thenReturn("123");
 
     Map<String, Object> param =
         new HashMap<String, Object>() {

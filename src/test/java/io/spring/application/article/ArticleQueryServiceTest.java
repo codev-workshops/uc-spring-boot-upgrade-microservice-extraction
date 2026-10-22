@@ -84,6 +84,79 @@ public class ArticleQueryServiceTest extends DbTestBase {
   }
 
   @Test
+  public void should_fill_following_when_fetch_single_article() {
+    User follower = new User("follower@test.com", "follower", "123", "", "");
+    userRepository.save(follower);
+    userRepository.saveRelation(new FollowRelation(follower.getId(), user.getId()));
+
+    ArticleData anonymous = queryService.findBySlug(article.getSlug(), null).get();
+    Assertions.assertFalse(anonymous.getProfileData().isFollowing());
+    Assertions.assertEquals(0, anonymous.getFavoritesCount());
+
+    ArticleData byId = queryService.findById(article.getId(), follower).get();
+    Assertions.assertTrue(byId.getProfileData().isFollowing());
+    Assertions.assertFalse(byId.isFavorited());
+
+    ArticleData bySlug = queryService.findBySlug(article.getSlug(), follower).get();
+    Assertions.assertEquals(article.getId(), bySlug.getId());
+    Assertions.assertTrue(bySlug.getProfileData().isFollowing());
+  }
+
+  @Test
+  public void should_return_empty_for_missing_article() {
+    Assertions.assertFalse(queryService.findById("missing", user).isPresent());
+    Assertions.assertFalse(queryService.findBySlug("missing", user).isPresent());
+  }
+
+  @Test
+  public void should_page_articles_by_cursor_with_extra_and_fill_info() {
+    Article olderArticle =
+        new Article(
+            "older article",
+            "desc",
+            "body",
+            Arrays.asList("test"),
+            user.getId(),
+            new DateTime().minusHours(1));
+    articleRepository.save(olderArticle);
+    User follower = new User("follower@test.com", "follower", "123", "", "");
+    userRepository.save(follower);
+    userRepository.saveRelation(new FollowRelation(follower.getId(), user.getId()));
+    articleFavoriteRepository.save(new ArticleFavorite(olderArticle.getId(), follower.getId()));
+
+    CursorPager<ArticleData> firstPage =
+        queryService.findRecentArticlesWithCursor(
+            null, null, null, new CursorPageParameter<>(null, 1, Direction.NEXT), follower);
+    Assertions.assertEquals(1, firstPage.getData().size());
+    Assertions.assertTrue(firstPage.hasNext());
+    Assertions.assertEquals(article.getId(), firstPage.getData().get(0).getId());
+    Assertions.assertTrue(firstPage.getData().get(0).getProfileData().isFollowing());
+
+    CursorPager<ArticleData> prevAll =
+        queryService.findRecentArticlesWithCursor(
+            null, null, null, new CursorPageParameter<>(null, 20, Direction.PREV), follower);
+    Assertions.assertEquals(2, prevAll.getData().size());
+    Assertions.assertFalse(prevAll.hasPrevious());
+    Assertions.assertEquals(article.getId(), prevAll.getData().get(0).getId());
+    Assertions.assertEquals(olderArticle.getId(), prevAll.getData().get(1).getId());
+    Assertions.assertTrue(prevAll.getData().get(1).isFavorited());
+    Assertions.assertEquals(1, prevAll.getData().get(1).getFavoritesCount());
+
+    CursorPager<ArticleData> prevPage =
+        queryService.findRecentArticlesWithCursor(
+            null, null, null, new CursorPageParameter<>(null, 1, Direction.PREV), follower);
+    Assertions.assertEquals(1, prevPage.getData().size());
+    Assertions.assertTrue(prevPage.hasPrevious());
+    Assertions.assertEquals(olderArticle.getId(), prevPage.getData().get(0).getId());
+
+    CursorPager<ArticleData> noMatch =
+        queryService.findRecentArticlesWithCursor(
+            "notag", null, null, new CursorPageParameter<>(null, 20, Direction.NEXT), follower);
+    Assertions.assertTrue(noMatch.getData().isEmpty());
+    Assertions.assertFalse(noMatch.hasNext());
+  }
+
+  @Test
   public void should_get_default_article_list() {
     Article anotherArticle =
         new Article(
@@ -221,6 +294,7 @@ public class ArticleQueryServiceTest extends DbTestBase {
 
     ArticleDataList userFeed = queryService.findUserFeed(user, new Page());
     Assertions.assertEquals(userFeed.getCount(), 0);
+    Assertions.assertTrue(userFeed.getArticleDatas().isEmpty());
 
     ArticleDataList anotherUserFeed = queryService.findUserFeed(anotherUser, new Page());
     Assertions.assertEquals(anotherUserFeed.getCount(), 1);
