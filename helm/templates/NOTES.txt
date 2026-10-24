@@ -1,4 +1,4 @@
-{{- $scheme := ternary "https" "http" (gt (len .Values.ingress.tls) 0) }}
+{{- $scheme := ternary "https" "http" (not (empty .Values.ingress.tls)) }}
 RealWorld app deployed as release {{ .Release.Name }} in namespace {{ .Release.Namespace }}.
 
 {{- if .Values.ingress.enabled }}
