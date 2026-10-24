@@ -1,0 +1,15 @@
+{{- $config := deepCopy .Values.backend.config }}
+{{- if .Values.postgresql.enabled }}
+{{- $_ := set $config "SPRING_DATASOURCE_URL" (include "realworld.postgresql.jdbcUrl" .) }}
+{{- $_ := set $config "SPRING_DATASOURCE_DRIVER_CLASS_NAME" "org.postgresql.Driver" }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "realworld.backend.fullname" . }}
+  labels:
+    {{- include "realworld.componentLabels" (dict "root" . "component" "backend") | nindent 4 }}
+data:
+  {{- range $key, $value := $config }}
+  {{ $key }}: {{ $value | toString | quote }}
+  {{- end }}

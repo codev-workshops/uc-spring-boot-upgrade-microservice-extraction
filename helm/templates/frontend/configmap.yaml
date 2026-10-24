@@ -1,0 +1,13 @@
+# Runtime configuration for the Next.js server process only. NEXT_PUBLIC_* values are inlined
+# into the browser bundle by `next build`, so they are set as Docker build args, not here.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "realworld.frontend.fullname" . }}
+  labels:
+    {{- include "realworld.componentLabels" (dict "root" . "component" "frontend") | nindent 4 }}
+data:
+  {{- $config := merge (dict) .Values.frontend.config (dict "SERVER_BASE_URL_INTERNAL" (printf "http://%s:%v" (include "realworld.backend.fullname" .) .Values.backend.service.port)) }}
+  {{- range $key, $value := $config }}
+  {{ $key }}: {{ $value | toString | quote }}
+  {{- end }}

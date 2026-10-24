@@ -1,4 +1,14 @@
-export const SERVER_BASE_URL = `http://localhost:8080`;
+// NEXT_PUBLIC_SERVER_BASE_URL is inlined into the browser bundle at build time and must be a
+// URL the browser can reach (e.g. `/api` or `https://<host>/api` behind the ingress).
+// SERVER_BASE_URL_INTERNAL is read at runtime by server-side rendering (getInitialProps),
+// e.g. the in-cluster backend Service; it falls back to the public URL.
+const PUBLIC_SERVER_BASE_URL =
+  process.env.NEXT_PUBLIC_SERVER_BASE_URL || `http://localhost:8080`;
+
+export const SERVER_BASE_URL = (typeof window === "undefined"
+  ? process.env.SERVER_BASE_URL_INTERNAL || PUBLIC_SERVER_BASE_URL
+  : PUBLIC_SERVER_BASE_URL
+).replace(/\/+$/, "");
 
 export const APP_NAME = `conduit`;
 

@@ -1,0 +1,238 @@
+# Base defaults for the realworld-app chart. Override per environment with
+# values-dev.yaml / values-prod.yaml.
+
+nameOverride: ""
+fullnameOverride: ""
+imagePullSecrets: []
+
+backend:
+  replicaCount: 1
+
+  image:
+    registry: ""
+    # Built from the repo-root Dockerfile.
+    repository: realworld-backend
+    # Defaults to the chart appVersion.
+    tag: ""
+    pullPolicy: IfNotPresent
+
+  containerPort: 8080
+  service:
+    type: ClusterIP
+    port: 8080
+
+  # Rendered into the backend ConfigMap and loaded with envFrom. Spring Boot relaxed binding
+  # maps these to properties (SPRING_DATASOURCE_URL -> spring.datasource.url,
+  # JWT_SESSIONTIME -> jwt.sessionTime, IMAGE_DEFAULT -> image.default, ...).
+  config:
+    SPRING_PROFILES_ACTIVE: default
+    # The image's working directory is /data (the data volume mount).
+    SPRING_DATASOURCE_URL: jdbc:sqlite:/data/dev.db
+    IMAGE_DEFAULT: https://static.productionready.io/images/smiley-cyrus.jpg
+    JWT_SESSIONTIME: "86400"
+    LOGGING_LEVEL_ROOT: INFO
+    JAVA_OPTS: -XX:MaxRAMPercentage=75.0
+
+  # Sensitive settings (JWT_SECRET, SPRING_DATASOURCE_USERNAME/PASSWORD, ...) are loaded with
+  # envFrom from a Secret: either an existing one (recommended outside dev) or one rendered
+  # from secret.data when secret.create is true.
+  # With secret.create and no JWT_SECRET in secret.data, a random JWT_SECRET is generated once
+  # and kept across upgrades.
+  secret:
+    create: false
+    existingSecret: ""
+    data: {}
+
+  extraEnv: []
+
+  probes:
+    startup:
+      httpGet:
+        path: /actuator/health/liveness
+        port: http
+      periodSeconds: 5
+      failureThreshold: 36
+    liveness:
+      httpGet:
+        path: /actuator/health/liveness
+        port: http
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+    readiness:
+      httpGet:
+        path: /actuator/health/readiness
+        port: http
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+
+  # CPU requests are required for the HPA's CPU utilization target.
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+  hpa:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+    behavior: {}
+
+  # SQLite data volume. A SQLite file on a ReadWriteOnce PVC can only be used by ONE backend
+  # pod, so persistence and the HPA (maxReplicas > 1) are mutually exclusive; the chart fails
+  # to render if both are set. When disabled, an emptyDir is mounted at mountPath instead.
+  persistence:
+    enabled: false
+    existingClaim: ""
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    mountPath: /data
+
+  podAnnotations: {}
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: ["ALL"]
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+frontend:
+  replicaCount: 1
+
+  image:
+    registry: ""
+    # Built from frontend/Dockerfile. The browser's backend URL (NEXT_PUBLIC_SERVER_BASE_URL)
+    # is inlined at build time (docker build --build-arg NEXT_PUBLIC_SERVER_BASE_URL=...);
+    # the default `/api` is the Ingress backend path on whatever host serves the frontend.
+    repository: realworld-frontend
+    tag: ""
+    pullPolicy: IfNotPresent
+
+  containerPort: 3000
+  service:
+    type: ClusterIP
+    port: 3000
+
+  # Server-side runtime configuration only (NEXT_PUBLIC_* cannot be changed here).
+  # SERVER_BASE_URL_INTERNAL is used by server-side rendering (getInitialProps) and defaults
+  # to the in-cluster backend Service; set it here to override.
+  config: {}
+
+  extraEnv: []
+
+  probes:
+    liveness:
+      httpGet:
+        path: /
+        port: http
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+    readiness:
+      httpGet:
+        path: /
+        port: http
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  podAnnotations: {}
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: ["ALL"]
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+ingress:
+  enabled: true
+  className: nginx
+  host: realworld.local
+  # ingress-nginx applies rewrite-target to every path in this Ingress, so both paths are
+  # regexes whose 2nd capture group is the upstream path: /api/articles -> backend /articles,
+  # /article/foo -> frontend /article/foo. The backend serves its API at the root.
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+  paths:
+    backend: /api(/|$)(.*)
+    frontend: /()(.*)
+  pathType: ImplementationSpecific
+  # - secretName: realworld-tls
+  #   hosts: [realworld.example.com]
+  tls: []
+
+# In-cluster PostgreSQL (single-instance StatefulSet), an alternative to SQLite on a PVC.
+# When enabled, the backend's SPRING_DATASOURCE_* settings point at it automatically, so the
+# backend can run more than one replica (HPA). Requires the backend `prod` profile (the demo
+# seed data is SQLite-only) and backend.persistence.enabled: false. See values-postgresql.yaml.
+# For production, a managed database (values-prod.yaml) gives backups/HA this does not.
+postgresql:
+  enabled: false
+  image:
+    registry: ""
+    repository: postgres
+    tag: 15-alpine
+    pullPolicy: IfNotPresent
+  database: realworld
+  username: realworld
+  # Use an existing Secret with keys `username` and `password`. Otherwise the chart creates one
+  # with `password` (generated once, then kept across upgrades and uninstalls so it keeps
+  # matching the data on the volume).
+  auth:
+    existingSecret: ""
+    password: ""
+  port: 5432
+  persistence:
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 8Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  podSecurityContext:
+    # UID/GID of the `postgres` user in the alpine image.
+    runAsNonRoot: true
+    runAsUser: 70
+    runAsGroup: 70
+    fsGroup: 70
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: ["ALL"]
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}

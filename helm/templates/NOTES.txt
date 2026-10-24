@@ -1,0 +1,23 @@
+{{- $scheme := ternary "https" "http" (not (empty .Values.ingress.tls)) }}
+RealWorld app deployed as release {{ .Release.Name }} in namespace {{ .Release.Namespace }}.
+
+{{- if .Values.ingress.enabled }}
+  Frontend: {{ $scheme }}://{{ .Values.ingress.host }}/
+  Backend:  {{ $scheme }}://{{ .Values.ingress.host }}/api/  (the /api prefix is stripped)
+{{- end }}
+
+Backend health:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "realworld.backend.fullname" . }} 8080:{{ .Values.backend.service.port }}
+  curl localhost:8080/actuator/health/readiness
+{{- if .Values.backend.persistence.enabled }}
+
+SQLite data is stored on PVC {{ include "realworld.backend.pvcName" . }} (single backend replica).
+{{- end }}
+{{- if .Values.postgresql.enabled }}
+
+The backend uses the in-cluster PostgreSQL StatefulSet {{ include "realworld.postgresql.fullname" . }} (volume data-{{ include "realworld.postgresql.fullname" . }}-0, kept on uninstall).
+{{- end }}
+{{- if .Values.backend.hpa.enabled }}
+
+The backend autoscales between {{ .Values.backend.hpa.minReplicas }} and {{ .Values.backend.hpa.maxReplicas }} replicas at {{ .Values.backend.hpa.targetCPUUtilizationPercentage }}% CPU (requires metrics-server).
+{{- end }}

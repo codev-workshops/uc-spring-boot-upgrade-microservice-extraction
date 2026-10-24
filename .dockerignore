@@ -1,0 +1,8 @@
+.git
+.gradle
+.windsurf
+build
+frontend
+helm
+*.db
+*.png

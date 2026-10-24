@@ -1,0 +1,141 @@
+{{- include "realworld.backend.validate" . }}
+{{- $b := .Values.backend }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "realworld.backend.fullname" . }}
+  labels:
+    {{- include "realworld.componentLabels" (dict "root" . "component" "backend") | nindent 4 }}
+spec:
+  {{- if not $b.hpa.enabled }}
+  replicas: {{ $b.replicaCount }}
+  {{- end }}
+  {{- if $b.persistence.enabled }}
+  # Never run two pods against the same SQLite file / RWO volume during a rollout.
+  strategy:
+    type: Recreate
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "realworld.selectorLabels" (dict "root" . "component" "backend") | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/backend/configmap.yaml") . | sha256sum }}
+        {{- if and $b.secret.create (not $b.secret.existingSecret) }}
+        checksum/secret: {{ toJson $b.secret.data | sha256sum }}
+        {{- end }}
+        {{- with $b.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "realworld.componentLabels" (dict "root" . "component" "backend") | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $b.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.postgresql.enabled }}
+      initContainers:
+        # Flyway runs at startup, so wait for the database instead of crash-looping.
+        - name: wait-for-postgresql
+          image: {{ include "realworld.image" (dict "root" . "image" .Values.postgresql.image) | quote }}
+          imagePullPolicy: {{ .Values.postgresql.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - until pg_isready -h {{ include "realworld.postgresql.fullname" . }} -p {{ .Values.postgresql.port }} -U {{ .Values.postgresql.username }} -d {{ .Values.postgresql.database }}; do echo waiting for postgresql; sleep 2; done
+          {{- with $b.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+      {{- end }}
+      containers:
+        - name: backend
+          image: {{ include "realworld.image" (dict "root" . "image" $b.image) | quote }}
+          imagePullPolicy: {{ $b.image.pullPolicy }}
+          {{- with $b.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ $b.containerPort }}
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "realworld.backend.fullname" . }}
+            {{- if or $b.secret.create $b.secret.existingSecret }}
+            - secretRef:
+                name: {{ include "realworld.backend.secretName" . }}
+            {{- end }}
+          {{- if or .Values.postgresql.enabled $b.extraEnv }}
+          env:
+            {{- if .Values.postgresql.enabled }}
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "realworld.postgresql.secretName" . }}
+                  key: username
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "realworld.postgresql.secretName" . }}
+                  key: password
+            {{- end }}
+            {{- with $b.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+          {{- with $b.probes.startup }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $b.probes.liveness }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $b.probes.readiness }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml $b.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: {{ $b.persistence.mountPath }}
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: data
+          {{- if $b.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "realworld.backend.pvcName" . }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: tmp
+          emptyDir: {}
+      {{- with $b.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $b.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $b.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
