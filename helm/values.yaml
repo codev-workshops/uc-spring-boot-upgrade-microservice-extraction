@@ -36,6 +36,8 @@ backend:
   # Sensitive settings (JWT_SECRET, SPRING_DATASOURCE_USERNAME/PASSWORD, ...) are loaded with
   # envFrom from a Secret: either an existing one (recommended outside dev) or one rendered
   # from secret.data when secret.create is true.
+  # With secret.create and no JWT_SECRET in secret.data, a random JWT_SECRET is generated once
+  # and kept across upgrades.
   secret:
     create: false
     existingSecret: ""
@@ -188,3 +190,49 @@ ingress:
   # - secretName: realworld-tls
   #   hosts: [realworld.example.com]
   tls: []
+
+# In-cluster PostgreSQL (single-instance StatefulSet), an alternative to SQLite on a PVC.
+# When enabled, the backend's SPRING_DATASOURCE_* settings point at it automatically, so the
+# backend can run more than one replica (HPA). Requires the backend `prod` profile (the demo
+# seed data is SQLite-only) and backend.persistence.enabled: false. See values-postgresql.yaml.
+# For production, a managed database (values-prod.yaml) gives backups/HA this does not.
+postgresql:
+  enabled: false
+  image:
+    registry: ""
+    repository: postgres
+    tag: 15-alpine
+    pullPolicy: IfNotPresent
+  database: realworld
+  username: realworld
+  # Use an existing Secret with keys `username` and `password`. Otherwise the chart creates one
+  # with `password` (generated once, then kept across upgrades and uninstalls so it keeps
+  # matching the data on the volume).
+  auth:
+    existingSecret: ""
+    password: ""
+  port: 5432
+  persistence:
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 8Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  podSecurityContext:
+    # UID/GID of the `postgres` user in the alpine image.
+    runAsNonRoot: true
+    runAsUser: 70
+    runAsGroup: 70
+    fsGroup: 70
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: ["ALL"]
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}

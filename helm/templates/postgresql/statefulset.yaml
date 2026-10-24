@@ -1,0 +1,115 @@
+{{- if .Values.postgresql.enabled }}
+{{- $p := .Values.postgresql }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "realworld.postgresql.fullname" . }}
+  labels:
+    {{- include "realworld.componentLabels" (dict "root" . "component" "postgresql") | nindent 4 }}
+spec:
+  # Single primary, no replication: do not scale this StatefulSet.
+  replicas: 1
+  serviceName: {{ include "realworld.postgresql.fullname" . }}-headless
+  selector:
+    matchLabels:
+      {{- include "realworld.selectorLabels" (dict "root" . "component" "postgresql") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "realworld.componentLabels" (dict "root" . "component" "postgresql") | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $p.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: postgresql
+          image: {{ include "realworld.image" (dict "root" . "image" $p.image) | quote }}
+          imagePullPolicy: {{ $p.image.pullPolicy }}
+          {{- with $p.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: postgresql
+              containerPort: {{ $p.port }}
+              protocol: TCP
+          env:
+            - name: POSTGRES_DB
+              value: {{ $p.database | quote }}
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "realworld.postgresql.secretName" . }}
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "realworld.postgresql.secretName" . }}
+                  key: password
+            # A subdirectory, so initdb does not trip over lost+found on the volume root.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          startupProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -h 127.0.0.1 -p {{ $p.port }} -U \"$POSTGRES_USER\" -d {{ $p.database }}"]
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -h 127.0.0.1 -p {{ $p.port }} -U \"$POSTGRES_USER\" -d {{ $p.database }}"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -h 127.0.0.1 -p {{ $p.port }} -U \"$POSTGRES_USER\" -d {{ $p.database }}"]
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml $p.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: run
+              mountPath: /var/run/postgresql
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+      {{- with $p.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $p.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $p.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  # The volume is not deleted on helm uninstall (StatefulSet PVCs are retained).
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          {{- include "realworld.selectorLabels" (dict "root" . "component" "postgresql") | nindent 10 }}
+      spec:
+        accessModes:
+          - {{ $p.persistence.accessMode }}
+        {{- with $p.persistence.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ $p.persistence.size }}
+{{- end }}

@@ -13,6 +13,10 @@ Backend health:
 
 SQLite data is stored on PVC {{ include "realworld.backend.pvcName" . }} (single backend replica).
 {{- end }}
+{{- if .Values.postgresql.enabled }}
+
+The backend uses the in-cluster PostgreSQL StatefulSet {{ include "realworld.postgresql.fullname" . }} (volume data-{{ include "realworld.postgresql.fullname" . }}-0, kept on uninstall).
+{{- end }}
 {{- if .Values.backend.hpa.enabled }}
 
 The backend autoscales between {{ .Values.backend.hpa.minReplicas }} and {{ .Values.backend.hpa.maxReplicas }} replicas at {{ .Values.backend.hpa.targetCPUUtilizationPercentage }}% CPU (requires metrics-server).

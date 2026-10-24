@@ -1,0 +1,34 @@
+{{- if .Values.postgresql.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "realworld.postgresql.fullname" . }}
+  labels:
+    {{- include "realworld.componentLabels" (dict "root" . "component" "postgresql") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: postgresql
+      port: {{ .Values.postgresql.port }}
+      targetPort: postgresql
+      protocol: TCP
+  selector:
+    {{- include "realworld.selectorLabels" (dict "root" . "component" "postgresql") | nindent 4 }}
+---
+# Governing headless Service for the StatefulSet's stable pod DNS.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "realworld.postgresql.fullname" . }}-headless
+  labels:
+    {{- include "realworld.componentLabels" (dict "root" . "component" "postgresql") | nindent 4 }}
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+    - name: postgresql
+      port: {{ .Values.postgresql.port }}
+      targetPort: postgresql
+  selector:
+    {{- include "realworld.selectorLabels" (dict "root" . "component" "postgresql") | nindent 4 }}
+{{- end }}

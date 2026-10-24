@@ -84,12 +84,36 @@ app.kubernetes.io/component: {{ .component }}
 A SQLite file on a ReadWriteOnce volume can only be used by one backend pod.
 */}}
 {{- define "realworld.backend.validate" -}}
+{{- include "realworld.postgresql.validate" . }}
 {{- if .Values.backend.persistence.enabled }}
 {{- if and .Values.backend.hpa.enabled (gt (int .Values.backend.hpa.maxReplicas) 1) }}
 {{- fail "backend.persistence.enabled (SQLite on a ReadWriteOnce PVC) cannot be combined with backend.hpa.enabled and maxReplicas > 1: use an external database (see values-prod.yaml) or disable the HPA." }}
 {{- end }}
 {{- if and (not .Values.backend.hpa.enabled) (gt (int .Values.backend.replicaCount) 1) }}
 {{- fail "backend.persistence.enabled (SQLite on a ReadWriteOnce PVC) requires backend.replicaCount: 1." }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{- define "realworld.postgresql.fullname" -}}
+{{- include "realworld.componentName" (dict "root" . "component" "postgresql") }}
+{{- end }}
+
+{{- define "realworld.postgresql.secretName" -}}
+{{- default (include "realworld.postgresql.fullname" .) .Values.postgresql.auth.existingSecret }}
+{{- end }}
+
+{{- define "realworld.postgresql.jdbcUrl" -}}
+{{- printf "jdbc:postgresql://%s:%v/%s" (include "realworld.postgresql.fullname" .) .Values.postgresql.port .Values.postgresql.database }}
+{{- end }}
+
+{{- define "realworld.postgresql.validate" -}}
+{{- if .Values.postgresql.enabled }}
+{{- if .Values.backend.persistence.enabled }}
+{{- fail "postgresql.enabled replaces SQLite: set backend.persistence.enabled: false (see values-postgresql.yaml)." }}
+{{- end }}
+{{- if not (has "prod" (splitList "," (toString .Values.backend.config.SPRING_PROFILES_ACTIVE | nospace))) }}
+{{- fail "postgresql.enabled requires backend.config.SPRING_PROFILES_ACTIVE to include `prod` (the default profile loads SQLite-only seed data)." }}
 {{- end }}
 {{- end }}
 {{- end }}

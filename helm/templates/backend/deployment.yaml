@@ -23,7 +23,7 @@ spec:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/backend/configmap.yaml") . | sha256sum }}
         {{- if and $b.secret.create (not $b.secret.existingSecret) }}
-        checksum/secret: {{ include (print $.Template.BasePath "/backend/secret.yaml") . | sha256sum }}
+        checksum/secret: {{ toJson $b.secret.data | sha256sum }}
         {{- end }}
         {{- with $b.podAnnotations }}
         {{- toYaml . | nindent 8 }}
@@ -38,6 +38,28 @@ spec:
       {{- with $b.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.postgresql.enabled }}
+      initContainers:
+        # Flyway runs at startup, so wait for the database instead of crash-looping.
+        - name: wait-for-postgresql
+          image: {{ include "realworld.image" (dict "root" . "image" .Values.postgresql.image) | quote }}
+          imagePullPolicy: {{ .Values.postgresql.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - until pg_isready -h {{ include "realworld.postgresql.fullname" . }} -p {{ .Values.postgresql.port }} -U {{ .Values.postgresql.username }} -d {{ .Values.postgresql.database }}; do echo waiting for postgresql; sleep 2; done
+          {{- with $b.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
       {{- end }}
       containers:
         - name: backend
@@ -58,9 +80,23 @@ spec:
             - secretRef:
                 name: {{ include "realworld.backend.secretName" . }}
             {{- end }}
-          {{- with $b.extraEnv }}
+          {{- if or .Values.postgresql.enabled $b.extraEnv }}
           env:
+            {{- if .Values.postgresql.enabled }}
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "realworld.postgresql.secretName" . }}
+                  key: username
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "realworld.postgresql.secretName" . }}
+                  key: password
+            {{- end }}
+            {{- with $b.extraEnv }}
             {{- toYaml . | nindent 12 }}
+            {{- end }}
           {{- end }}
           {{- with $b.probes.startup }}
           startupProbe:
