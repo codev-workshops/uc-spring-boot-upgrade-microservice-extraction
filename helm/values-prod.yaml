@@ -1,0 +1,67 @@
+# Prod: horizontally scaled backend on an external PostgreSQL database (SQLite cannot be
+# shared across pods), TLS on the Ingress.
+backend:
+  image:
+    registry: registry.example.com/realworld
+    tag: "0.0.1"
+    pullPolicy: IfNotPresent
+  config:
+    # application-prod.properties: PostgreSQL driver, no demo seed data, JWT secret from env.
+    SPRING_PROFILES_ACTIVE: prod
+    SPRING_DATASOURCE_URL: jdbc:postgresql://postgres.example.internal:5432/realworld
+    LOGGING_LEVEL_ROOT: INFO
+    JAVA_OPTS: -XX:MaxRAMPercentage=75.0
+  # Must provide JWT_SECRET, SPRING_DATASOURCE_USERNAME and SPRING_DATASOURCE_PASSWORD, e.g.
+  # kubectl create secret generic realworld-backend-secrets \
+  #   --from-literal=JWT_SECRET=... \
+  #   --from-literal=SPRING_DATASOURCE_USERNAME=... \
+  #   --from-literal=SPRING_DATASOURCE_PASSWORD=...
+  secret:
+    create: false
+    existingSecret: realworld-backend-secrets
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+  persistence:
+    enabled: false
+  resources:
+    requests:
+      cpu: 500m
+      memory: 768Mi
+    limits:
+      cpu: "2"
+      memory: 1536Mi
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            topologyKey: kubernetes.io/hostname
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/component: backend
+
+frontend:
+  replicaCount: 2
+  image:
+    registry: registry.example.com/realworld
+    tag: "0.0.1"
+  resources:
+    requests:
+      cpu: 250m
+      memory: 384Mi
+    limits:
+      cpu: "1"
+      memory: 768Mi
+
+ingress:
+  host: realworld.example.com
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  tls:
+    - secretName: realworld-tls
+      hosts:
+        - realworld.example.com

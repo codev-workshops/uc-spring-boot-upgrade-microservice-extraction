@@ -1,0 +1,38 @@
+# Dev: single backend replica on SQLite with a PersistentVolumeClaim, no autoscaling.
+backend:
+  replicaCount: 1
+  image:
+    tag: dev
+    pullPolicy: IfNotPresent
+  config:
+    SPRING_PROFILES_ACTIVE: default
+    SPRING_DATASOURCE_URL: jdbc:sqlite:/data/dev.db
+    LOGGING_LEVEL_ROOT: INFO
+    LOGGING_LEVEL_IO_SPRING: DEBUG
+  hpa:
+    enabled: false
+  persistence:
+    enabled: true
+    size: 1Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 384Mi
+    limits:
+      cpu: "1"
+      memory: 768Mi
+
+frontend:
+  replicaCount: 1
+  image:
+    tag: dev
+  resources:
+    requests:
+      cpu: 50m
+      memory: 192Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+ingress:
+  host: realworld.dev.local

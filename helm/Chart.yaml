@@ -1,0 +1,6 @@
+apiVersion: v2
+name: realworld-app
+description: RealWorld (Conduit) app - Spring Boot backend and Next.js frontend deployed as independent workloads behind one Ingress.
+type: application
+version: 0.1.0
+appVersion: "0.0.1-SNAPSHOT"

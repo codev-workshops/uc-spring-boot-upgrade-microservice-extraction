@@ -1,0 +1,19 @@
+{{- if and .Values.backend.persistence.enabled (not .Values.backend.persistence.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "realworld.backend.pvcName" . }}
+  labels:
+    {{- include "realworld.componentLabels" (dict "root" . "component" "backend") | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  accessModes:
+    - {{ .Values.backend.persistence.accessMode }}
+  {{- with .Values.backend.persistence.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.backend.persistence.size }}
+{{- end }}

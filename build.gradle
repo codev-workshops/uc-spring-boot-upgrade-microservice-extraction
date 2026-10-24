@@ -60,6 +60,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-hateoas'
     implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:2.2.2'
     implementation 'com.netflix.graphql.dgs:graphql-dgs-spring-boot-starter:4.9.21'
     implementation 'org.flywaydb:flyway-core'
@@ -68,6 +69,7 @@ dependencies {
                 'io.jsonwebtoken:jjwt-jackson:0.11.2'
     implementation 'joda-time:joda-time:2.10.13'
     implementation 'org.xerial:sqlite-jdbc:3.36.0.3'
+    runtimeOnly 'org.postgresql:postgresql'
 
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
