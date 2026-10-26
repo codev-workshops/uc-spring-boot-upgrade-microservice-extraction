@@ -2,7 +2,7 @@
 
 ## Repository Purpose
 
-Spring Boot 2.6.3 / Java 11 monolith implementing the RealWorld blogging platform (Conduit). 4 domain contexts: articles/tags, comments, favorites, users/profiles. REST and GraphQL (DGS) APIs, MyBatis persistence with SQLite, Flyway migrations, 27 test files with an 80% JaCoCo coverage gate.
+Spring Boot 3.2.12 / Java 17 monolith implementing the RealWorld blogging platform (Conduit). 4 domain contexts: articles/tags, comments, favorites, users/profiles. REST and GraphQL (DGS) APIs, MyBatis persistence with SQLite, Flyway migrations, 27 test files with an 80% JaCoCo coverage gate.
 
 ## Microservice Extraction Standards
 
@@ -30,5 +30,5 @@ Spring Boot 2.6.3 / Java 11 monolith implementing the RealWorld blogging platfor
 
 - Follow existing code conventions: MyBatis XML mappers, Spring `@Service`/`@Repository` annotations, constructor injection
 - Maintain the existing package structure pattern: `api/`, `core/`, `application/`, `infrastructure/`
-- Use the same Spring Boot version (2.6.3) and dependency versions as the monolith
+- Use the same Spring Boot version (3.2.12) and dependency versions as the monolith
 - All new REST endpoints must follow the existing URL patterns and response envelope format

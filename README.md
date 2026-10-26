@@ -64,7 +64,7 @@ The application includes seed data with sample users, articles, tags, comments, 
 
 ## Backend (Spring Boot)
 
-You'll need Java 11 installed.
+You'll need Java 17 installed.
 
     ./gradlew bootRun
 
