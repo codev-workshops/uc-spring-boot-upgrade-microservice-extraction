@@ -1,0 +1,82 @@
+# build-before.log — baseline (branch asiri-progress @ 7acb734)
+# Command: JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 ./gradlew clean build -x jacocoTestCoverageVerification --console=plain
+# Date: 2026-10-26T10:15:25Z
+# openjdk version "11.0.32.1" 2026-08-18
+# OpenJDK Runtime Environment (build 11.0.32.1+1-post-1ubuntu1-22.04-Ubuntu)
+# OpenJDK 64-Bit Server VM (build 11.0.32.1+1-post-1ubuntu1-22.04-Ubuntu, mixed mode, sharing)
+# Gradle 7.4
+# Kotlin:       1.5.31
+# JVM:          11.0.32.1 (Ubuntu 11.0.32.1+1-post-1ubuntu1-22.04-Ubuntu)
+
+Starting a Gradle Daemon, 1 busy Daemon could not be reused, use --status for details
+
+> Configure project :
+DGS CodeGen added [com.netflix.graphql.dgs.codegen:graphql-dgs-codegen-client-core:5.0.6] to the implementation dependencies.
+
+> Task :clean
+> Task :generateJava
+
+> Task :compileJava
+Note: /home/ubuntu/repos/uc-spring-boot-upgrade-microservice-extraction/src/main/java/io/spring/graphql/exception/GraphQLCustomizeExceptionHandler.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: /home/ubuntu/repos/uc-spring-boot-upgrade-microservice-extraction/src/main/java/io/spring/graphql/exception/GraphQLCustomizeExceptionHandler.java uses unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :processResources
+> Task :classes
+> Task :bootJarMainClassName
+> Task :bootJar
+> Task :jar
+> Task :assemble
+> Task :spotlessInternalRegisterDependencies
+
+> Task :spotlessJava
+Execution optimizations have been disabled for task ':spotlessJava' to ensure correctness due to the following reasons:
+  - Gradle detected a problem with the following location: '/home/ubuntu/repos/uc-spring-boot-upgrade-microservice-extraction'. Reason: Task ':spotlessJava' uses this output of task ':compileJava' without declaring an explicit or implicit dependency. This can lead to incorrect results being produced, depending on what order the tasks are executed. Please refer to https://docs.gradle.org/7.4/userguide/validation_problems.html#implicit_dependency for more details about this problem.
+  - Gradle detected a problem with the following location: '/home/ubuntu/repos/uc-spring-boot-upgrade-microservice-extraction'. Reason: Task ':spotlessJava' uses this output of task ':generateJava' without declaring an explicit or implicit dependency. This can lead to incorrect results being produced, depending on what order the tasks are executed. Please refer to https://docs.gradle.org/7.4/userguide/validation_problems.html#implicit_dependency for more details about this problem.
+  - Gradle detected a problem with the following location: '/home/ubuntu/repos/uc-spring-boot-upgrade-microservice-extraction'. Reason: Task ':spotlessJava' uses this output of task ':processResources' without declaring an explicit or implicit dependency. This can lead to incorrect results being produced, depending on what order the tasks are executed. Please refer to https://docs.gradle.org/7.4/userguide/validation_problems.html#implicit_dependency for more details about this problem.
+
+> Task :spotlessJavaCheck
+> Task :spotlessCheck
+> Task :compileTestJava
+> Task :processTestResources
+> Task :testClasses
+
+> Task :test
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+2026-10-26 10:15:12.993  INFO 14147 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-10-26 10:15:12.999  INFO 14147 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-10-26 10:15:13.012  INFO 14147 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Shutdown initiated...
+2026-10-26 10:15:13.014  INFO 14147 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Shutdown completed.
+2026-10-26 10:15:13.015  INFO 14147 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-3 - Shutdown initiated...
+2026-10-26 10:15:13.016  INFO 14147 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-3 - Shutdown completed.
+2026-10-26 10:15:13.022  INFO 14147 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-4 - Shutdown initiated...
+2026-10-26 10:15:13.024  INFO 14147 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-4 - Shutdown completed.
+2026-10-26 10:15:13.025  INFO 14147 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-5 - Shutdown initiated...
+2026-10-26 10:15:13.026  INFO 14147 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-5 - Shutdown completed.
+2026-10-26 10:15:13.028  INFO 14147 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-6 - Shutdown initiated...
+2026-10-26 10:15:13.029  INFO 14147 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-6 - Shutdown completed.
+2026-10-26 10:15:13.029  INFO 14147 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-7 - Shutdown initiated...
+2026-10-26 10:15:13.031  INFO 14147 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-7 - Shutdown completed.
+2026-10-26 10:15:13.032  INFO 14147 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-8 - Shutdown initiated...
+2026-10-26 10:15:13.034  INFO 14147 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-8 - Shutdown completed.
+2026-10-26 10:15:13.034  INFO 14147 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-9 - Shutdown initiated...
+2026-10-26 10:15:13.036  INFO 14147 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-9 - Shutdown completed.
+2026-10-26 10:15:13.037  INFO 14147 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-10 - Shutdown initiated...
+2026-10-26 10:15:13.038  INFO 14147 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-10 - Shutdown completed.
+
+> Task :jacocoTestReport
+> Task :check
+> Task :build
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 8.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+See https://docs.gradle.org/7.4/userguide/command_line_interface.html#sec:command_line_warnings
+
+Execution optimizations have been disabled for 1 invalid unit(s) of work during this build to ensure correctness.
+Please consult deprecation warnings for more details.
+
+BUILD SUCCESSFUL in 33s
+14 actionable tasks: 14 executed

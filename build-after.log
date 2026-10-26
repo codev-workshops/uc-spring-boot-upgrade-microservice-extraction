@@ -1,0 +1,57 @@
+# build-after.log — after Java 17 / Spring Boot 3.2.12 upgrade (base asiri-progress @ 7acb734)
+# Command: JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 ./gradlew clean build -x jacocoTestCoverageVerification --console=plain --warning-mode all
+# Date: 2026-10-26T10:23:12Z
+# openjdk version "17.0.20.1" 2026-08-18
+# OpenJDK Runtime Environment (build 17.0.20.1+1-1-22.04-Ubuntu)
+# OpenJDK 64-Bit Server VM (build 17.0.20.1+1-1-22.04-Ubuntu, mixed mode, sharing)
+# Gradle 8.9
+# Kotlin:        1.9.23
+
+
+> Configure project :
+The org.gradle.api.plugins.Convention type has been deprecated. This is scheduled to be removed in Gradle 9.0. Consult the upgrading guide for further information: https://docs.gradle.org/8.9/userguide/upgrading_version_8.html#deprecated_access_to_conventions
+
+> Task :clean
+> Task :generateJava
+> Task :compileJava
+> Task :processResources
+> Task :classes
+> Task :resolveMainClassName
+> Task :bootJar
+> Task :jar
+> Task :assemble
+> Task :spotlessInternalRegisterDependencies
+> Task :spotlessJava
+> Task :spotlessJavaCheck
+> Task :spotlessCheck
+> Task :compileTestJava
+> Task :processTestResources
+> Task :testClasses
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+2026-10-26T10:21:19.599Z  INFO 31457 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-10-26T10:21:19.600Z  INFO 31457 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-10-26T10:21:19.604Z  INFO 31457 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Shutdown initiated...
+2026-10-26T10:21:19.605Z  INFO 31457 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Shutdown completed.
+2026-10-26T10:21:19.605Z  INFO 31457 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-3 - Shutdown initiated...
+2026-10-26T10:21:19.606Z  INFO 31457 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-3 - Shutdown completed.
+2026-10-26T10:21:19.607Z  INFO 31457 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-4 - Shutdown initiated...
+2026-10-26T10:21:19.607Z  INFO 31457 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-4 - Shutdown completed.
+2026-10-26T10:21:19.608Z  INFO 31457 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-5 - Shutdown initiated...
+2026-10-26T10:21:19.608Z  INFO 31457 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-5 - Shutdown completed.
+2026-10-26T10:21:19.610Z  INFO 31457 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-6 - Shutdown initiated...
+2026-10-26T10:21:19.610Z  INFO 31457 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-6 - Shutdown completed.
+2026-10-26T10:21:19.611Z  INFO 31457 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-7 - Shutdown initiated...
+2026-10-26T10:21:19.611Z  INFO 31457 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-7 - Shutdown completed.
+2026-10-26T10:21:19.611Z  INFO 31457 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-8 - Shutdown initiated...
+2026-10-26T10:21:19.612Z  INFO 31457 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-8 - Shutdown completed.
+2026-10-26T10:21:19.612Z  INFO 31457 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-9 - Shutdown initiated...
+2026-10-26T10:21:19.613Z  INFO 31457 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-9 - Shutdown completed.
+2026-10-26T10:21:19.613Z  INFO 31457 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-10 - Shutdown initiated...
+2026-10-26T10:21:19.613Z  INFO 31457 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-10 - Shutdown completed.
+> Task :test
+> Task :jacocoTestReport
+> Task :check
+> Task :build
+
+BUILD SUCCESSFUL in 13s
+14 actionable tasks: 14 executed
