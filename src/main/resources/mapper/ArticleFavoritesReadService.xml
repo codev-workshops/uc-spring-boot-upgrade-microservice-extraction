@@ -27,4 +27,25 @@
         </foreach>
         and AF.user_id = #{currentUser.id}
     </select>
+    <select id="favoriteCountsByArticleIds" resultMap="transfer.data.favoriteCount">
+        select article_id as id, count(1) as favoriteCount from article_favorites
+        where article_id in
+        <foreach collection="ids" item="item" separator="," open="(" close=")">
+            #{item}
+        </foreach>
+        group by article_id
+    </select>
+    <select id="favoritedArticleIdsOfUser" resultType="java.lang.String">
+        select article_id from article_favorites
+        where user_id = #{userId}
+        and article_id in
+        <foreach collection="ids" item="item" separator="," open="(" close=")">
+            #{item}
+        </foreach>
+    </select>
+    <select id="articleIdsFavoritedBy" resultType="java.lang.String">
+        select AF.article_id from article_favorites AF
+        join users U on U.id = AF.user_id
+        where U.username = #{username}
+    </select>
 </mapper>

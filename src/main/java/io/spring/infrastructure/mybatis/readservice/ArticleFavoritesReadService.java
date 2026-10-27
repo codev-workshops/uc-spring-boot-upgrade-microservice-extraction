@@ -16,4 +16,11 @@ public interface ArticleFavoritesReadService {
   List<ArticleFavoriteCount> articlesFavoriteCount(@Param("ids") List<String> ids);
 
   Set<String> userFavorites(@Param("ids") List<String> ids, @Param("currentUser") User currentUser);
+
+  List<ArticleFavoriteCount> favoriteCountsByArticleIds(@Param("ids") List<String> ids);
+
+  Set<String> favoritedArticleIdsOfUser(
+      @Param("userId") String userId, @Param("ids") List<String> ids);
+
+  List<String> articleIdsFavoritedBy(@Param("username") String username);
 }
