@@ -75,6 +75,13 @@ Alternatively, you can run
 
     curl http://localhost:8080/tags
 
+## Article service (extracted microservice)
+
+The Articles domain has also been extracted into a standalone service in [`article-service/`](article-service/README.md). It runs on port 8081 and has its own build and its own SQLite database. For users, follows and favorites it calls the monolith's read-only `/internal/**` endpoints. To run it alongside the backend:
+
+    cd article-service && ./gradlew bootRun
+    curl http://localhost:8081/tags
+
 ## Frontend (Next.js)
 
 You'll need Node.js installed. **Recommended: Node v14-16** (specified in `frontend/.nvmrc`).

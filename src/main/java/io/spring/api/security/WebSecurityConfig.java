@@ -59,6 +59,8 @@ public class WebSecurityConfig {
                     .authenticated()
                     .requestMatchers(HttpMethod.POST, "/users", "/users/login")
                     .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/internal/profiles", "/internal/favorites/**")
+                    .permitAll()
                     .requestMatchers(HttpMethod.GET, "/articles/**", "/profiles/**", "/tags")
                     .permitAll()
                     .anyRequest()

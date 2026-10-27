@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="io.spring.articles.infrastructure.mybatis.readservice.ArticleReadService">
+    <resultMap id="articleData" type="io.spring.articles.application.data.ArticleData">
+        <id column="articleId" property="id"/>
+        <result column="articleSlug" property="slug"/>
+        <result column="articleTitle" property="title"/>
+        <result column="articleDescription" property="description"/>
+        <result column="articleBody" property="body"/>
+        <result column="articleCreatedAt" property="createdAt"/>
+        <result column="articleUpdatedAt" property="updatedAt"/>
+        <result column="articleUserId" property="authorId"/>
+        <collection property="tagList" javaType="list" ofType="string">
+            <result column="tagName"/>
+        </collection>
+    </resultMap>
+
+    <sql id="selectArticleData">
+        select
+          A.id articleId,
+          A.slug articleSlug,
+          A.title articleTitle,
+          A.description articleDescription,
+          A.body articleBody,
+          A.created_at articleCreatedAt,
+          A.updated_at articleUpdatedAt,
+          A.user_id articleUserId,
+          T.name tagName
+        from articles A
+        left join article_tags AT on A.id = AT.article_id
+        left join tags T on T.id = AT.tag_id
+    </sql>
+
+    <sql id="filteredArticles">
+        from articles A
+        <if test="tag != null">
+            join article_tags AT on A.id = AT.article_id
+            join tags T on T.id = AT.tag_id
+        </if>
+        <where>
+            <if test="tag != null">
+                T.name = #{tag}
+            </if>
+            <if test="authorIds != null">
+                AND A.user_id in
+                <foreach collection="authorIds" item="item" separator="," open="(" close=")">
+                    #{item}
+                </foreach>
+            </if>
+            <if test="articleIds != null">
+                AND A.id in
+                <foreach collection="articleIds" item="item" separator="," open="(" close=")">
+                    #{item}
+                </foreach>
+            </if>
+        </where>
+    </sql>
+
+    <select id="findById" resultMap="articleData">
+        <include refid="selectArticleData"/>
+        where A.id = #{id}
+    </select>
+    <select id="findBySlug" resultMap="articleData">
+        <include refid="selectArticleData"/>
+        where A.slug = #{slug}
+    </select>
+    <select id="queryArticles" resultType="java.lang.String">
+        select A.id
+        <include refid="filteredArticles"/>
+        order by A.created_at desc
+        limit #{page.limit} offset #{page.offset}
+    </select>
+    <select id="countArticle" resultType="java.lang.Integer">
+        select count(distinct A.id)
+        <include refid="filteredArticles"/>
+    </select>
+    <select id="findArticles" resultMap="articleData">
+        <include refid="selectArticleData"/>
+        where A.id in
+        <foreach collection="articleIds" item="item" separator="," open="(" close=")">
+            #{item}
+        </foreach>
+        order by A.created_at desc
+    </select>
+</mapper>
