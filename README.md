@@ -63,6 +63,11 @@ extracted into the standalone [`comments-service`](comments-service/).
 | `GET` | `/comments/{id}` | `{"comment": {...}}` or `404` |
 | `DELETE` | `/articles/{articleId}/comments/{id}` | `204` or `404` |
 
+* Upgrading an existing database: the monolith's `V3` migration renames `comments` to `comments_legacy` instead of dropping it.
+  On its first start, `comments-service` attaches the monolith database read-only (`COMMENTS_LEGACY_DB_PATH`), copies every row
+  it does not already have, and refuses to start if any row is missing afterwards. Docker Compose mounts the monolith volume
+  read-only for this. `comments_legacy` is never written again; drop it manually once you have checked the import.
+
 Run both services:
 
 ```bash
@@ -71,7 +76,7 @@ docker compose up --build
 # monolith on http://localhost:8080; comments-service is internal to the compose network
 ```
 
-Or locally: export the same `COMMENTS_SERVICE_TOKEN` in both shells, run `cd comments-service && ./gradlew bootRun`, then `./gradlew bootRun` in the repository root.
+Or locally: export the same `COMMENTS_SERVICE_TOKEN` in both shells (and `COMMENTS_LEGACY_DB_PATH=../dev.db` for the comments service when upgrading an existing `dev.db`), run `cd comments-service && ./gradlew bootRun`, then `./gradlew bootRun` in the repository root.
 
 # Security
 
