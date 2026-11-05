@@ -16,9 +16,10 @@ public class HttpCommentRepository implements CommentRepository {
   }
 
   @Override
-  public void save(Comment comment) {
-    commentServiceClient.create(
-        comment.getArticleId(), comment.getId(), comment.getUserId(), comment.getBody());
+  public Comment save(Comment comment) {
+    return toComment(
+        commentServiceClient.create(
+            comment.getArticleId(), comment.getId(), comment.getUserId(), comment.getBody()));
   }
 
   @Override

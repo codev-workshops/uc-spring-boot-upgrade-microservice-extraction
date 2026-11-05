@@ -60,7 +60,7 @@ extracted into the standalone [`comments-service`](comments-service/).
 | `POST` | `/articles/{articleId}/comments` | body `{"comment": {"body", "userId", "id"?}}` → `201 {"comment": {...}}` |
 | `GET` | `/articles/{articleId}/comments` | `{"comments": [...]}`; optional `limit`, `cursor` (epoch millis), `direction` (`NEXT`/`PREV`) |
 | `GET` | `/articles/{articleId}/comments/{id}` | `{"comment": {...}}` or `404` |
-| `GET` | `/comments/{id}` | `{"comment": {...}}` or `404` |
+| `GET` | `/comments/{id}` | `{"comment": {...}}` or `404` (not used by the monolith) |
 | `DELETE` | `/articles/{articleId}/comments/{id}` | `204` or `404` |
 
 * Upgrading an existing database: the monolith's `V3` migration renames `comments` to `comments_legacy` instead of dropping it.

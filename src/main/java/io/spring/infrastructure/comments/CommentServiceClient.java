@@ -70,19 +70,6 @@ public class CommentServiceClient {
     }
   }
 
-  public Optional<RemoteComment> findById(String id) {
-    try {
-      CommentResponse response =
-          restTemplate.getForObject("/comments/{id}", CommentResponse.class, id);
-      return Optional.ofNullable(response).map(CommentResponse::getComment);
-    } catch (HttpClientErrorException.NotFound e) {
-      return Optional.empty();
-    } catch (RestClientException e) {
-      throw new CommentServiceException(
-          "Failed to fetch comment " + id + " from comments-service", e);
-    }
-  }
-
   public Optional<RemoteComment> findByArticleIdAndId(String articleId, String id) {
     try {
       CommentResponse response =

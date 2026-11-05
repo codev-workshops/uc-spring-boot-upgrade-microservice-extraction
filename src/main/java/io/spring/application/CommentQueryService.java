@@ -3,6 +3,7 @@ package io.spring.application;
 import io.spring.application.data.CommentData;
 import io.spring.application.data.ProfileData;
 import io.spring.application.data.UserData;
+import io.spring.core.comment.Comment;
 import io.spring.core.user.User;
 import io.spring.infrastructure.comments.CommentServiceClient;
 import io.spring.infrastructure.comments.RemoteComment;
@@ -13,7 +14,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
@@ -27,16 +27,19 @@ public class CommentQueryService {
   private UserReadService userReadService;
   private UserRelationshipQueryService userRelationshipQueryService;
 
-  public Optional<CommentData> findById(String id, User user) {
-    Optional<CommentData> commentData =
-        commentServiceClient.findById(id).map(remote -> toCommentData(remote, new HashMap<>()));
-    commentData.ifPresent(
-        data ->
-            data.getProfileData()
-                .setFollowing(
-                    userRelationshipQueryService.isUserFollowing(
-                        user.getId(), data.getProfileData().getId())));
-    return commentData;
+  public CommentData fromSavedComment(Comment comment, User author) {
+    return new CommentData(
+        comment.getId(),
+        comment.getBody(),
+        comment.getArticleId(),
+        comment.getCreatedAt(),
+        comment.getCreatedAt(),
+        new ProfileData(
+            author.getId(),
+            author.getUsername(),
+            author.getBio(),
+            author.getImage(),
+            userRelationshipQueryService.isUserFollowing(author.getId(), author.getId())));
   }
 
   public List<CommentData> findByArticleId(String articleId, User user) {

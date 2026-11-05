@@ -16,7 +16,6 @@ import io.spring.core.comment.CommentServiceException;
 import io.spring.infrastructure.repository.HttpCommentRepository;
 import java.time.Duration;
 import java.util.List;
-import java.util.Optional;
 import org.joda.time.DateTime;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -70,8 +69,12 @@ public class CommentServiceClientTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .body("{\"comment\":" + COMMENT_JSON + "}"));
 
-    repository.save(comment);
+    Comment saved = repository.save(comment);
     server.verify();
+    Assertions.assertEquals("c1", saved.getId());
+    Assertions.assertEquals("content", saved.getBody());
+    Assertions.assertEquals(
+        new DateTime("2021-01-01T00:00:00.000Z").getMillis(), saved.getCreatedAt().getMillis());
   }
 
   @Test
@@ -82,20 +85,6 @@ public class CommentServiceClientTest {
         Assertions.assertThrows(
             CommentServiceException.class, () -> client.create("a1", "c1", "u1", "content"));
     Assertions.assertTrue(e.getMessage().contains("comments-service"));
-  }
-
-  @Test
-  public void should_find_comment_by_id() {
-    server
-        .expect(requestTo("/comments/c1"))
-        .andRespond(withSuccess("{\"comment\":" + COMMENT_JSON + "}", MediaType.APPLICATION_JSON));
-
-    Optional<RemoteComment> comment = client.findById("c1");
-    Assertions.assertTrue(comment.isPresent());
-    Assertions.assertEquals("content", comment.get().getBody());
-    Assertions.assertEquals(
-        new DateTime("2021-01-01T00:00:00.000Z").getMillis(),
-        comment.get().createdAtTime().getMillis());
   }
 
   @Test
@@ -121,9 +110,10 @@ public class CommentServiceClientTest {
 
   @Test
   public void should_throw_domain_exception_when_lookup_fails() {
-    server.expect(requestTo("/comments/c1")).andRespond(withServerError());
+    server.expect(requestTo("/articles/a1/comments/c1")).andRespond(withServerError());
 
-    Assertions.assertThrows(CommentServiceException.class, () -> client.findById("c1"));
+    Assertions.assertThrows(
+        CommentServiceException.class, () -> client.findByArticleIdAndId("a1", "c1"));
   }
 
   @Test

@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.spring.application.CommentQueryService;
@@ -13,6 +14,7 @@ import io.spring.application.CursorPager;
 import io.spring.application.CursorPager.Direction;
 import io.spring.application.data.CommentData;
 import io.spring.application.data.UserData;
+import io.spring.core.comment.Comment;
 import io.spring.core.user.User;
 import io.spring.infrastructure.comments.CommentServiceClient;
 import io.spring.infrastructure.comments.RemoteComment;
@@ -21,7 +23,6 @@ import io.spring.infrastructure.mybatis.readservice.UserRelationshipQueryService
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import org.joda.time.DateTime;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,27 +58,19 @@ public class CommentQueryServiceTest {
   }
 
   @Test
-  public void should_read_comment_with_author_profile() {
+  public void should_build_saved_comment_without_calling_comments_service() {
     DateTime createdAt = new DateTime(1000L);
-    when(commentServiceClient.findById(eq("c1")))
-        .thenReturn(Optional.of(remoteComment("c1", "content", author.getId(), createdAt)));
-    when(userRelationshipQueryService.isUserFollowing(eq(user.getId()), eq(author.getId())))
-        .thenReturn(true);
+    Comment saved = new Comment("c1", "content", user.getId(), "article-id", createdAt);
 
-    Optional<CommentData> optional = commentQueryService.findById("c1", user);
-    Assertions.assertTrue(optional.isPresent());
-    CommentData commentData = optional.get();
+    CommentData commentData = commentQueryService.fromSavedComment(saved, user);
+
+    Assertions.assertEquals("c1", commentData.getId());
     Assertions.assertEquals("content", commentData.getBody());
     Assertions.assertEquals("article-id", commentData.getArticleId());
     Assertions.assertEquals(createdAt.getMillis(), commentData.getCreatedAt().getMillis());
-    Assertions.assertEquals("author", commentData.getProfileData().getUsername());
-    Assertions.assertTrue(commentData.getProfileData().isFollowing());
-  }
-
-  @Test
-  public void should_return_empty_when_comment_not_found() {
-    when(commentServiceClient.findById(eq("missing"))).thenReturn(Optional.empty());
-    Assertions.assertFalse(commentQueryService.findById("missing", user).isPresent());
+    Assertions.assertEquals(user.getUsername(), commentData.getProfileData().getUsername());
+    Assertions.assertFalse(commentData.getProfileData().isFollowing());
+    verifyNoInteractions(commentServiceClient);
   }
 
   @Test

@@ -35,11 +35,8 @@ public class CommentMutation {
     Article article =
         articleRepository.findBySlug(slug).orElseThrow(ResourceNotFoundException::new);
     Comment comment = new Comment(body, user.getId(), article.getId());
-    commentRepository.save(comment);
-    CommentData commentData =
-        commentQueryService
-            .findById(comment.getId(), user)
-            .orElseThrow(ResourceNotFoundException::new);
+    Comment saved = commentRepository.save(comment);
+    CommentData commentData = commentQueryService.fromSavedComment(saved, user);
     return DataFetcherResult.<CommentPayload>newResult()
         .localContext(commentData)
         .data(CommentPayload.newBuilder().build())
