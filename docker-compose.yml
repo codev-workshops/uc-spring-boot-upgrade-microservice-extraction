@@ -1,0 +1,31 @@
+services:
+  comments-service:
+    build: ./comments-service
+    environment:
+      COMMENTS_DB_PATH: /data/comments.db
+      COMMENTS_SERVICE_TOKEN: ${COMMENTS_SERVICE_TOKEN:?set COMMENTS_SERVICE_TOKEN to a random secret}
+      # One-off import of comments stored in the monolith database before extraction.
+      COMMENTS_LEGACY_DB_PATH: /legacy/dev.db
+    volumes:
+      - comments-data:/data
+      - monolith-data:/legacy:ro
+    # Internal only: reachable by the monolith on the compose network, not published to the host.
+    expose:
+      - "8081"
+
+  monolith:
+    build: .
+    environment:
+      COMMENTS_SERVICE_URL: http://comments-service:8081
+      COMMENTS_SERVICE_TOKEN: ${COMMENTS_SERVICE_TOKEN:?set COMMENTS_SERVICE_TOKEN to a random secret}
+      SPRING_DATASOURCE_URL: jdbc:sqlite:/data/dev.db
+    volumes:
+      - monolith-data:/data
+    ports:
+      - "8080:8080"
+    depends_on:
+      - comments-service
+
+volumes:
+  comments-data:
+  monolith-data:
