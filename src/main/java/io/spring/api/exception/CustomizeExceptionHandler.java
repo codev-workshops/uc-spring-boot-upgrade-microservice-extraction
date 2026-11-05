@@ -2,6 +2,7 @@ package io.spring.api.exception;
 
 import static org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY;
 
+import io.spring.core.comment.CommentServiceException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -51,6 +52,18 @@ public class CustomizeExceptionHandler extends ResponseEntityExceptionHandler {
   public ResponseEntity<Object> handleInvalidAuthentication(
       InvalidAuthenticationException e, WebRequest request) {
     return ResponseEntity.status(UNPROCESSABLE_ENTITY)
+        .body(
+            new HashMap<String, Object>() {
+              {
+                put("message", e.getMessage());
+              }
+            });
+  }
+
+  @ExceptionHandler(CommentServiceException.class)
+  public ResponseEntity<Object> handleCommentServiceFailure(
+      CommentServiceException e, WebRequest request) {
+    return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
         .body(
             new HashMap<String, Object>() {
               {

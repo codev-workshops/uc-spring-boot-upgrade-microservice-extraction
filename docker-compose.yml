@@ -1,0 +1,25 @@
+services:
+  comments-service:
+    build: ./comments-service
+    environment:
+      COMMENTS_DB_PATH: /data/comments.db
+    volumes:
+      - comments-data:/data
+    ports:
+      - "8081:8081"
+
+  monolith:
+    build: .
+    environment:
+      COMMENTS_SERVICE_URL: http://comments-service:8081
+      SPRING_DATASOURCE_URL: jdbc:sqlite:/data/dev.db
+    volumes:
+      - monolith-data:/data
+    ports:
+      - "8080:8080"
+    depends_on:
+      - comments-service
+
+volumes:
+  comments-data:
+  monolith-data:

@@ -32,6 +32,43 @@ And the code is organized as this:
 3. `application` is the high-level services for querying the data transfer objects
 4. `infrastructure`  contains all the implementation classes as the technique details
 
+# Comments microservice
+
+The codebase has four domain contexts. Comments is the most loosely coupled of them: its only
+dependencies on the rest of the system are an `articleId` and a `userId` reference, so it has been
+extracted into the standalone [`comments-service`](comments-service/).
+
+| Context | Owns | Lives in |
+|---------|------|----------|
+| Users / profiles | `users`, `follows` | monolith |
+| Articles / tags | `articles`, `tags`, `article_tags` | monolith |
+| Favorites | `article_favorites` | monolith |
+| Comments | `comments` | `comments-service` (own SQLite database) |
+
+* The monolith still serves the public REST and GraphQL APIs (`/articles/{slug}/comments`, `addComment`, ...).
+  It handles authentication, article lookup, and authorization, and enriches comments with author profiles.
+* Comment storage goes through `HttpCommentRepository` / `CommentServiceClient`, which call `comments-service` over HTTP
+  (`COMMENTS_SERVICE_URL`, default `http://localhost:8081`).
+  If the service is unreachable, comment lists come back empty and writes return `503`.
+* `comments-service` API (internal):
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/articles/{articleId}/comments` | body `{"comment": {"body", "userId", "id"?}}` → `201 {"comment": {...}}` |
+| `GET` | `/articles/{articleId}/comments` | `{"comments": [...]}`; optional `limit`, `cursor` (epoch millis), `direction` (`NEXT`/`PREV`) |
+| `GET` | `/articles/{articleId}/comments/{id}` | `{"comment": {...}}` or `404` |
+| `GET` | `/comments/{id}` | `{"comment": {...}}` or `404` |
+| `DELETE` | `/articles/{articleId}/comments/{id}` | `204` or `404` |
+
+Run both services:
+
+```bash
+docker compose up --build
+# monolith on http://localhost:8080, comments-service on http://localhost:8081
+```
+
+Or locally: `cd comments-service && ./gradlew bootRun`, then `./gradlew bootRun` in the repository root.
+
 # Security
 
 Integration with Spring Security and add other filter for jwt token process.

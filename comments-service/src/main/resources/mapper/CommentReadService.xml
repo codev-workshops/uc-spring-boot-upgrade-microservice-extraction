@@ -1,27 +1,25 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
-<mapper namespace="io.spring.infrastructure.mybatis.readservice.CommentReadService">
+<mapper namespace="io.spring.comments.infrastructure.mybatis.readservice.CommentReadService">
     <sql id="selectCommentData">
         SELECT
         C.id commentId,
         C.body commentBody,
         C.created_at commentCreatedAt,
         C.article_id commentArticleId,
-        <include refid="io.spring.infrastructure.mybatis.readservice.ArticleReadService.profileColumns"/>
+        C.user_id commentUserId
         from comments C
-        left join users U
-        on C.user_id = U.id
     </sql>
 
-    <select id="findById" resultMap="transfer.data.commentData">
+    <select id="findById" resultMap="commentData">
         <include refid="selectCommentData"/>
         where C.id = #{id}
     </select>
-    <select id="findByArticleId" resultMap="transfer.data.commentData">
+    <select id="findByArticleId" resultMap="commentData">
         <include refid="selectCommentData"/>
         where C.article_id = #{articleId}
     </select>
-    <select id="findByArticleIdWithCursor" resultMap="transfer.data.commentData">
+    <select id="findByArticleIdWithCursor" resultMap="commentData">
         <include refid="selectCommentData"/>
         <where>
         C.article_id = #{articleId}
@@ -38,5 +36,15 @@
         <if test='page.direction.name() == "PREV"'>
             order by C.created_at asc
         </if>
+        limit #{page.queryLimit}
     </select>
+
+    <resultMap id="commentData" type="io.spring.comments.application.data.CommentData">
+        <id column="commentId" property="id"/>
+        <result column="commentBody" property="body"/>
+        <result column="commentCreatedAt" property="createdAt"/>
+        <result column="commentCreatedAt" property="updatedAt"/>
+        <result column="commentArticleId" property="articleId"/>
+        <result column="commentUserId" property="userId"/>
+    </resultMap>
 </mapper>

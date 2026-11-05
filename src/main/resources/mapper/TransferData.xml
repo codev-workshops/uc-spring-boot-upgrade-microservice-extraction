@@ -29,12 +29,4 @@
         </collection>
     </resultMap>
 
-    <resultMap id="commentData" type="io.spring.application.data.CommentData">
-        <id column="commentId" property="id"/>
-        <result column="commentBody" property="body"/>
-        <result column="commentCreatedAt" property="createdAt"/>
-        <result column="commentCreatedAt" property="updatedAt"/>
-        <result column="commentArticleId" property="articleId"/>
-        <association property="profileData" resultMap="profileData"/>
-    </resultMap>
 </mapper>

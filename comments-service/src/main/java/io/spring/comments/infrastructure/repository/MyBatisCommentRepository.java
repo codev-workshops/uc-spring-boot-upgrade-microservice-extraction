@@ -1,17 +1,15 @@
-package io.spring.infrastructure.repository;
+package io.spring.comments.infrastructure.repository;
 
-import io.spring.core.comment.Comment;
-import io.spring.core.comment.CommentRepository;
-import io.spring.infrastructure.mybatis.mapper.CommentMapper;
+import io.spring.comments.core.comment.Comment;
+import io.spring.comments.core.comment.CommentRepository;
+import io.spring.comments.infrastructure.mybatis.mapper.CommentMapper;
 import java.util.Optional;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Repository;
 
-@Component
+@Repository
 public class MyBatisCommentRepository implements CommentRepository {
-  private CommentMapper commentMapper;
+  private final CommentMapper commentMapper;
 
-  @Autowired
   public MyBatisCommentRepository(CommentMapper commentMapper) {
     this.commentMapper = commentMapper;
   }

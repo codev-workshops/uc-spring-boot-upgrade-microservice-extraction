@@ -5,6 +5,7 @@ import static org.hamcrest.core.IsEqual.equalTo;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 import io.restassured.module.mockmvc.RestAssuredMockMvc;
@@ -17,6 +18,7 @@ import io.spring.core.article.Article;
 import io.spring.core.article.ArticleRepository;
 import io.spring.core.comment.Comment;
 import io.spring.core.comment.CommentRepository;
+import io.spring.core.comment.CommentServiceException;
 import io.spring.core.user.User;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -88,6 +90,28 @@ public class CommentsApiTest extends TestWithCurrentUser {
         .then()
         .statusCode(201)
         .body("comment.body", equalTo(commentData.getBody()));
+  }
+
+  @Test
+  public void should_get_503_when_comments_service_unavailable() throws Exception {
+    Map<String, Object> param = new HashMap<>();
+    Map<String, Object> comment = new HashMap<>();
+    comment.put("body", "comment content");
+    param.put("comment", comment);
+
+    doThrow(new CommentServiceException("Failed to create comment in comments-service", null))
+        .when(commentRepository)
+        .save(any());
+
+    given()
+        .contentType("application/json")
+        .header("Authorization", "Token " + token)
+        .body(param)
+        .when()
+        .post("/articles/{slug}/comments", article.getSlug())
+        .then()
+        .statusCode(503)
+        .body("message", equalTo("Failed to create comment in comments-service"));
   }
 
   @Test
