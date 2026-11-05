@@ -3,15 +3,18 @@ services:
     build: ./comments-service
     environment:
       COMMENTS_DB_PATH: /data/comments.db
+      COMMENTS_SERVICE_TOKEN: ${COMMENTS_SERVICE_TOKEN:?set COMMENTS_SERVICE_TOKEN to a random secret}
     volumes:
       - comments-data:/data
-    ports:
-      - "8081:8081"
+    # Internal only: reachable by the monolith on the compose network, not published to the host.
+    expose:
+      - "8081"
 
   monolith:
     build: .
     environment:
       COMMENTS_SERVICE_URL: http://comments-service:8081
+      COMMENTS_SERVICE_TOKEN: ${COMMENTS_SERVICE_TOKEN:?set COMMENTS_SERVICE_TOKEN to a random secret}
       SPRING_DATASOURCE_URL: jdbc:sqlite:/data/dev.db
     volumes:
       - monolith-data:/data

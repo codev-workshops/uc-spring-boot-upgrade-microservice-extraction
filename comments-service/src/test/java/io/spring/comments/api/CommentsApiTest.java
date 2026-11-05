@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 
 import io.restassured.module.mockmvc.RestAssuredMockMvc;
 import io.spring.comments.JacksonCustomizations;
+import io.spring.comments.api.security.ServiceTokenFilter;
 import io.spring.comments.application.CommentQueryService;
 import io.spring.comments.application.CursorPageParameter;
 import io.spring.comments.application.Direction;
@@ -28,10 +29,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(CommentsApi.class)
 @Import(JacksonCustomizations.class)
+@TestPropertySource(properties = "comments.service.token=test-token")
 public class CommentsApiTest {
   @MockBean private CommentRepository commentRepository;
   @MockBean private CommentQueryService commentQueryService;
@@ -68,6 +71,7 @@ public class CommentsApiTest {
     when(commentQueryService.findById(anyString())).thenReturn(Optional.of(commentData));
 
     given()
+        .header(ServiceTokenFilter.HEADER, "test-token")
         .contentType("application/json")
         .body(newCommentParam("comment content", "user-1"))
         .when()
@@ -90,6 +94,7 @@ public class CommentsApiTest {
     ((Map<String, Object>) param.get("comment")).put("id", "client-id");
 
     given()
+        .header(ServiceTokenFilter.HEADER, "test-token")
         .contentType("application/json")
         .body(param)
         .when()
@@ -105,6 +110,7 @@ public class CommentsApiTest {
   @Test
   public void should_get_422_with_empty_body() {
     given()
+        .header(ServiceTokenFilter.HEADER, "test-token")
         .contentType("application/json")
         .body(newCommentParam("", "user-1"))
         .when()
@@ -119,7 +125,9 @@ public class CommentsApiTest {
   public void should_get_comments_of_article_success() {
     when(commentQueryService.findByArticleId(eq("article-1")))
         .thenReturn(Arrays.asList(commentData));
-    RestAssuredMockMvc.when()
+    given()
+        .header(ServiceTokenFilter.HEADER, "test-token")
+        .when()
         .get("/articles/{articleId}/comments", "article-1")
         .then()
         .statusCode(200)
@@ -132,6 +140,7 @@ public class CommentsApiTest {
     when(commentQueryService.findByArticleIdWithCursor(eq("article-1"), any()))
         .thenReturn(Arrays.asList(commentData));
     given()
+        .header(ServiceTokenFilter.HEADER, "test-token")
         .queryParam("limit", 5)
         .queryParam("cursor", 1000L)
         .queryParam("direction", "PREV")
@@ -151,7 +160,9 @@ public class CommentsApiTest {
   @Test
   public void should_get_comment_by_id() {
     when(commentQueryService.findById(eq(comment.getId()))).thenReturn(Optional.of(commentData));
-    RestAssuredMockMvc.when()
+    given()
+        .header(ServiceTokenFilter.HEADER, "test-token")
+        .when()
         .get("/comments/{id}", comment.getId())
         .then()
         .statusCode(200)
@@ -161,7 +172,12 @@ public class CommentsApiTest {
   @Test
   public void should_get_404_for_unknown_comment() {
     when(commentQueryService.findById(anyString())).thenReturn(Optional.empty());
-    RestAssuredMockMvc.when().get("/comments/{id}", "missing").then().statusCode(404);
+    given()
+        .header(ServiceTokenFilter.HEADER, "test-token")
+        .when()
+        .get("/comments/{id}", "missing")
+        .then()
+        .statusCode(404);
   }
 
   @Test
@@ -169,7 +185,9 @@ public class CommentsApiTest {
     when(commentRepository.findById(eq("article-1"), eq(comment.getId())))
         .thenReturn(Optional.of(comment));
     when(commentQueryService.findById(eq(comment.getId()))).thenReturn(Optional.of(commentData));
-    RestAssuredMockMvc.when()
+    given()
+        .header(ServiceTokenFilter.HEADER, "test-token")
+        .when()
         .get("/articles/{articleId}/comments/{id}", "article-1", comment.getId())
         .then()
         .statusCode(200)
@@ -180,7 +198,9 @@ public class CommentsApiTest {
   public void should_delete_comment_success() {
     when(commentRepository.findById(eq("article-1"), eq(comment.getId())))
         .thenReturn(Optional.of(comment));
-    RestAssuredMockMvc.when()
+    given()
+        .header(ServiceTokenFilter.HEADER, "test-token")
+        .when()
         .delete("/articles/{articleId}/comments/{id}", "article-1", comment.getId())
         .then()
         .statusCode(204);
@@ -190,10 +210,35 @@ public class CommentsApiTest {
   @Test
   public void should_get_404_when_deleting_unknown_comment() {
     when(commentRepository.findById(anyString(), anyString())).thenReturn(Optional.empty());
-    RestAssuredMockMvc.when()
+    given()
+        .header(ServiceTokenFilter.HEADER, "test-token")
+        .when()
         .delete("/articles/{articleId}/comments/{id}", "article-1", "missing")
         .then()
         .statusCode(404);
+    verify(commentRepository, never()).remove(any());
+  }
+
+  @Test
+  public void should_reject_request_without_service_token() {
+    given()
+        .contentType("application/json")
+        .body(newCommentParam("forged", "someone-else"))
+        .when()
+        .post("/articles/{articleId}/comments", "article-1")
+        .then()
+        .statusCode(401);
+    verify(commentRepository, never()).save(any());
+  }
+
+  @Test
+  public void should_reject_request_with_wrong_service_token() {
+    given()
+        .header(ServiceTokenFilter.HEADER, "wrong-token")
+        .when()
+        .delete("/articles/{articleId}/comments/{id}", "article-1", comment.getId())
+        .then()
+        .statusCode(401);
     verify(commentRepository, never()).remove(any());
   }
 }

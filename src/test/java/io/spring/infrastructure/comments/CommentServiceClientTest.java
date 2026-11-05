@@ -1,6 +1,7 @@
 package io.spring.infrastructure.comments;
 
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withNoContent;
@@ -45,7 +46,8 @@ public class CommentServiceClientTest {
             new RestTemplateBuilder(customizer),
             BASE_URL,
             Duration.ofSeconds(1),
-            Duration.ofSeconds(1));
+            Duration.ofSeconds(1),
+            "test-token");
     server = customizer.getServer();
     repository = new HttpCommentRepository(client);
   }
@@ -56,6 +58,7 @@ public class CommentServiceClientTest {
     server
         .expect(requestTo("/articles/a1/comments"))
         .andExpect(method(HttpMethod.POST))
+        .andExpect(header("X-Service-Token", "test-token"))
         .andExpect(
             content()
                 .json(

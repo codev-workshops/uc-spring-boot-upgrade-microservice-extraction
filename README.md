@@ -50,6 +50,9 @@ extracted into the standalone [`comments-service`](comments-service/).
 * Comment storage goes through `HttpCommentRepository` / `CommentServiceClient`, which call `comments-service` over HTTP
   (`COMMENTS_SERVICE_URL`, default `http://localhost:8081`).
   If the service is unreachable, comment lists come back empty and writes return `503`.
+* `comments-service` trusts the `userId` it receives and does no end-user authorization, so it must only be reachable by the monolith:
+  every request must carry the shared `X-Service-Token` header (`COMMENTS_SERVICE_TOKEN`, required by both services), and
+  Docker Compose does not publish its port to the host.
 * `comments-service` API (internal):
 
 | Method | Path | Description |
@@ -63,11 +66,12 @@ extracted into the standalone [`comments-service`](comments-service/).
 Run both services:
 
 ```bash
+export COMMENTS_SERVICE_TOKEN=$(openssl rand -hex 32)
 docker compose up --build
-# monolith on http://localhost:8080, comments-service on http://localhost:8081
+# monolith on http://localhost:8080; comments-service is internal to the compose network
 ```
 
-Or locally: `cd comments-service && ./gradlew bootRun`, then `./gradlew bootRun` in the repository root.
+Or locally: export the same `COMMENTS_SERVICE_TOKEN` in both shells, run `cd comments-service && ./gradlew bootRun`, then `./gradlew bootRun` in the repository root.
 
 # Security
 

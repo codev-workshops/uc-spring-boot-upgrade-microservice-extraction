@@ -27,13 +27,19 @@ import org.springframework.web.util.UriComponentsBuilder;
 @Slf4j
 @Component
 public class CommentServiceClient {
+  static final String SERVICE_TOKEN_HEADER = "X-Service-Token";
+
   private final RestTemplate restTemplate;
 
   public CommentServiceClient(
       RestTemplateBuilder restTemplateBuilder,
       @Value("${comments.service.url}") String baseUrl,
       @Value("${comments.service.connect-timeout:2s}") Duration connectTimeout,
-      @Value("${comments.service.read-timeout:5s}") Duration readTimeout) {
+      @Value("${comments.service.read-timeout:5s}") Duration readTimeout,
+      @Value("${comments.service.token:}") String serviceToken) {
+    if (serviceToken.isEmpty()) {
+      log.warn("comments.service.token is not set; comments-service will reject requests");
+    }
     // Dedicated mapper: the application's ObjectMapper unwraps root values for incoming requests.
     ObjectMapper objectMapper =
         new ObjectMapper().disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
@@ -43,6 +49,7 @@ public class CommentServiceClient {
             .messageConverters(new MappingJackson2HttpMessageConverter(objectMapper))
             .setConnectTimeout(connectTimeout)
             .setReadTimeout(readTimeout)
+            .defaultHeader(SERVICE_TOKEN_HEADER, serviceToken)
             .build();
   }
 
