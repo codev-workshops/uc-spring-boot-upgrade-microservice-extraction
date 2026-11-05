@@ -32,3 +32,6 @@ frontend/.next/
 frontend/out/
 frontend/.env*.local
 frontend/.git/
+
+# IDE build output
+bin/
