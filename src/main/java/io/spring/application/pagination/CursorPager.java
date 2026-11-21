@@ -1,4 +1,4 @@
-package io.spring.application;
+package io.spring.application.pagination;
 
 import java.util.List;
 import lombok.Getter;

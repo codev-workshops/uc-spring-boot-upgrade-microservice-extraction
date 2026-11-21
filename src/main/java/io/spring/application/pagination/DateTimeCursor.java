@@ -1,4 +1,4 @@
-package io.spring.application;
+package io.spring.application.pagination;
 
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;

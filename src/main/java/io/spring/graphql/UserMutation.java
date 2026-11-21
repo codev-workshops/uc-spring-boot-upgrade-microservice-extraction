@@ -4,7 +4,7 @@ import com.netflix.graphql.dgs.DgsComponent;
 import com.netflix.graphql.dgs.DgsData;
 import com.netflix.graphql.dgs.InputArgument;
 import graphql.execution.DataFetcherResult;
-import io.spring.api.exception.InvalidAuthenticationException;
+import io.spring.application.exception.InvalidAuthenticationException;
 import io.spring.application.user.RegisterParam;
 import io.spring.application.user.UpdateUserCommand;
 import io.spring.application.user.UpdateUserParam;

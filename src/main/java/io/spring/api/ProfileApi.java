@@ -1,8 +1,8 @@
 package io.spring.api;
 
-import io.spring.api.exception.ResourceNotFoundException;
 import io.spring.application.ProfileQueryService;
 import io.spring.application.data.ProfileData;
+import io.spring.application.exception.ResourceNotFoundException;
 import io.spring.core.user.FollowRelation;
 import io.spring.core.user.User;
 import io.spring.core.user.UserRepository;

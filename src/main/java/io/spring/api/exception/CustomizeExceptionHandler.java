@@ -2,11 +2,16 @@ package io.spring.api.exception;
 
 import static org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY;
 
+import io.spring.application.exception.InvalidAuthenticationException;
+import io.spring.application.exception.NoAuthorizationException;
+import io.spring.application.exception.ResourceNotFoundException;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.servlet.http.HttpServletResponse;
 import javax.validation.ConstraintViolation;
 import javax.validation.ConstraintViolationException;
 import org.springframework.http.HttpHeaders;
@@ -57,6 +62,16 @@ public class CustomizeExceptionHandler extends ResponseEntityExceptionHandler {
                 put("message", e.getMessage());
               }
             });
+  }
+
+  @ExceptionHandler(ResourceNotFoundException.class)
+  public void handleResourceNotFound(HttpServletResponse response) throws IOException {
+    response.sendError(HttpStatus.NOT_FOUND.value());
+  }
+
+  @ExceptionHandler(NoAuthorizationException.class)
+  public void handleNoAuthorization(HttpServletResponse response) throws IOException {
+    response.sendError(HttpStatus.FORBIDDEN.value());
   }
 
   @Override
