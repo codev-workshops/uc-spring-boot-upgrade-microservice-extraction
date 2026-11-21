@@ -2,8 +2,8 @@ package io.spring.application.data;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.spring.application.DateTimeCursor;
-import io.spring.application.Node;
+import io.spring.application.pagination.DateTimeCursor;
+import io.spring.application.pagination.Node;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

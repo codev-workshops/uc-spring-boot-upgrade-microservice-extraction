@@ -1,13 +1,13 @@
 package io.spring.application.article;
 
 import io.spring.application.ArticleQueryService;
-import io.spring.application.CursorPageParameter;
-import io.spring.application.CursorPager;
-import io.spring.application.CursorPager.Direction;
-import io.spring.application.DateTimeCursor;
-import io.spring.application.Page;
 import io.spring.application.data.ArticleData;
 import io.spring.application.data.ArticleDataList;
+import io.spring.application.pagination.CursorPageParameter;
+import io.spring.application.pagination.CursorPager;
+import io.spring.application.pagination.CursorPager.Direction;
+import io.spring.application.pagination.DateTimeCursor;
+import io.spring.application.pagination.Page;
 import io.spring.core.article.Article;
 import io.spring.core.article.ArticleRepository;
 import io.spring.core.favorite.ArticleFavorite;
