@@ -8,7 +8,7 @@ import graphql.execution.DataFetcherExceptionHandler;
 import graphql.execution.DataFetcherExceptionHandlerParameters;
 import graphql.execution.DataFetcherExceptionHandlerResult;
 import io.spring.api.exception.FieldErrorResource;
-import io.spring.api.exception.InvalidAuthenticationException;
+import io.spring.application.exception.InvalidAuthenticationException;
 import io.spring.graphql.types.Error;
 import io.spring.graphql.types.ErrorItem;
 import java.util.ArrayList;

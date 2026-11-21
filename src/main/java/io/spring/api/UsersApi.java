@@ -3,10 +3,10 @@ package io.spring.api;
 import static org.springframework.web.bind.annotation.RequestMethod.POST;
 
 import com.fasterxml.jackson.annotation.JsonRootName;
-import io.spring.api.exception.InvalidAuthenticationException;
 import io.spring.application.UserQueryService;
 import io.spring.application.data.UserData;
 import io.spring.application.data.UserWithToken;
+import io.spring.application.exception.InvalidAuthenticationException;
 import io.spring.application.user.RegisterParam;
 import io.spring.application.user.UserService;
 import io.spring.core.service.JwtService;
