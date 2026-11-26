@@ -83,7 +83,7 @@ create table article_tags (
 -- After (V3)
 create table tags (
   id varchar(255) primary key,
-  name varchar(255) not null UNIQUE CHECK (length(trim(name)) > 0)
+  name varchar(255) not null UNIQUE CHECK (length(trim(name, char(32, 9, 10, 11, 12, 13, 160))) > 0)
 );
 create table article_tags (
   article_id varchar(255) not null REFERENCES articles(id) ON DELETE CASCADE,
@@ -95,7 +95,7 @@ CREATE INDEX idx_article_tags_tag_id ON article_tags(tag_id);
 
 V1 already stored tags in their own `tags` table with an `article_tags` junction table, but without constraints, so duplicate tag names, duplicate links and orphan links were possible. V3:
 
-1. Trims tag names.
+1. Trims surrounding spaces, tabs, line breaks and non-breaking spaces from tag names.
 2. Merges tags with the same name into the one with the lowest id and re-points their links.
 3. Drops blank tags, duplicate links, and links to missing articles or tags. Articles without tags are untouched.
 4. Rebuilds `tags` with `UNIQUE(name)` and a non-blank `CHECK`, and `article_tags` with `PRIMARY KEY(article_id, tag_id)` and `ON DELETE CASCADE` foreign keys.

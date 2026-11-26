@@ -40,10 +40,11 @@ public class TagSchemaMigrationTest {
         "insert into articles (id, slug, created_at) values"
             + " ('a1', 'a1', 0), ('a2', 'a2', 0), ('no-tags', 'no-tags', 0)",
         "insert into tags (id, name) values"
-            + " ('t1', 'java'), ('t2', 'java'), ('t3', ' java '), ('t4', 'spring'), ('t5', '  ')",
+            + " ('t1', 'java'), ('t2', 'java'), ('t3', ' java '), ('t4', 'spring'), ('t5', '  '),"
+            + " ('t6', char(9) || 'spring' || char(160)), ('t7', char(9, 160))",
         "insert into article_tags (article_id, tag_id) values"
             + " ('a1', 't1'), ('a1', 't2'), ('a1', 't3'), ('a1', 't1'),"
-            + " ('a2', 't2'), ('a2', 't4'), ('a2', 't5'),"
+            + " ('a2', 't2'), ('a2', 't4'), ('a2', 't5'), ('a2', 't6'), ('a2', 't7'),"
             + " ('missing-article', 't1'), ('a1', 'missing-tag')");
 
     migrate(null, "classpath:db/migration");
@@ -64,6 +65,7 @@ public class TagSchemaMigrationTest {
 
     assertRejected("insert into tags (id, name) values ('t2', 'java')");
     assertRejected("insert into tags (id, name) values ('t3', ' ')");
+    assertRejected("insert into tags (id, name) values ('t4', char(9, 160))");
     assertRejected("insert into article_tags (article_id, tag_id) values ('a1', 't1')");
     Assertions.assertEquals(
         List.of("idx_article_tags_tag_id"),
