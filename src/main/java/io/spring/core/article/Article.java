@@ -43,7 +43,7 @@ public class Article {
     this.body = body;
     this.tags =
         tagList.stream()
-            .map(name -> name.replaceAll("^[\\s\\u00a0]+|[\\s\\u00a0]+$", ""))
+            .map(Article::stripTagName)
             .filter(name -> !name.isEmpty())
             .distinct()
             .map(Tag::new)
@@ -71,5 +71,21 @@ public class Article {
 
   public static String toSlug(String title) {
     return title.toLowerCase().replaceAll("[\\&|[\\uFE30-\\uFFA0]|\\’|\\”|\\s\\?\\,\\.]+", "-");
+  }
+
+  private static String stripTagName(String name) {
+    int start = 0;
+    int end = name.length();
+    while (start < end && isTagWhitespace(name.charAt(start))) {
+      start++;
+    }
+    while (end > start && isTagWhitespace(name.charAt(end - 1))) {
+      end--;
+    }
+    return name.substring(start, end);
+  }
+
+  private static boolean isTagWhitespace(char c) {
+    return c == ' ' || (c >= '\t' && c <= '\r') || c == '\u00a0';
   }
 }
