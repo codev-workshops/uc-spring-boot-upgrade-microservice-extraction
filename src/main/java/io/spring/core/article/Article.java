@@ -43,7 +43,7 @@ public class Article {
     this.body = body;
     this.tags =
         tagList.stream()
-            .map(String::strip)
+            .map(name -> name.replaceAll("^[\\s\\u00a0]+|[\\s\\u00a0]+$", ""))
             .filter(name -> !name.isEmpty())
             .distinct()
             .map(Tag::new)
