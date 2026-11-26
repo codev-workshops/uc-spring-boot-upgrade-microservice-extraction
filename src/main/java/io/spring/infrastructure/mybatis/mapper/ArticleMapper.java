@@ -21,5 +21,7 @@ public interface ArticleMapper {
 
   void update(@Param("article") Article article);
 
+  void deleteArticleTagRelations(@Param("articleId") String articleId);
+
   void delete(@Param("id") String id);
 }
