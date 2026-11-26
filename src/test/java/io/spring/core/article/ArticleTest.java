@@ -9,6 +9,14 @@ import org.junit.jupiter.api.Test;
 public class ArticleTest {
 
   @Test
+  public void should_trim_and_drop_blank_tags() {
+    Article article =
+        new Article(
+            "title", "desc", "body", Arrays.asList(" java ", "java", "  ", "\t\u00a0"), "123");
+    assertThat(article.getTags(), is(Arrays.asList(new Tag("java"))));
+  }
+
+  @Test
   public void should_get_right_slug() {
     Article article = new Article("a new   title", "desc", "body", Arrays.asList("java"), "123");
     assertThat(article.getSlug(), is("a-new-title"));

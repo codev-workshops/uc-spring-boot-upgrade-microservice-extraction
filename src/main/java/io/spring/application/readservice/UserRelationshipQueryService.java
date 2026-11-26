@@ -1,4 +1,4 @@
-package io.spring.infrastructure.mybatis.readservice;
+package io.spring.application.readservice;
 
 import java.util.List;
 import java.util.Set;

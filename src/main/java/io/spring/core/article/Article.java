@@ -3,7 +3,6 @@ package io.spring.core.article;
 import static java.util.stream.Collectors.toList;
 
 import io.spring.Util;
-import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
 import lombok.EqualsAndHashCode;
@@ -42,7 +41,13 @@ public class Article {
     this.title = title;
     this.description = description;
     this.body = body;
-    this.tags = new HashSet<>(tagList).stream().map(Tag::new).collect(toList());
+    this.tags =
+        tagList.stream()
+            .map(Article::stripTagName)
+            .filter(name -> !name.isEmpty())
+            .distinct()
+            .map(Tag::new)
+            .collect(toList());
     this.userId = userId;
     this.createdAt = createdAt;
     this.updatedAt = createdAt;
@@ -66,5 +71,21 @@ public class Article {
 
   public static String toSlug(String title) {
     return title.toLowerCase().replaceAll("[\\&|[\\uFE30-\\uFFA0]|\\’|\\”|\\s\\?\\,\\.]+", "-");
+  }
+
+  private static String stripTagName(String name) {
+    int start = 0;
+    int end = name.length();
+    while (start < end && isTagWhitespace(name.charAt(start))) {
+      start++;
+    }
+    while (end > start && isTagWhitespace(name.charAt(end - 1))) {
+      end--;
+    }
+    return name.substring(start, end);
+  }
+
+  private static boolean isTagWhitespace(char c) {
+    return c == ' ' || (c >= '\t' && c <= '\r') || c == '\u00a0';
   }
 }
