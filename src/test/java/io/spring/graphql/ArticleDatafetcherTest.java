@@ -82,6 +82,18 @@ public class ArticleDatafetcherTest extends GraphQLTestBase {
     Assertions.assertEquals(2000L, ((DateTime) backward.getCursor()).getMillis());
   }
 
+  private void assertForwardThenBackwardWithoutCursor(List<CursorPageParameter> params) {
+    Assertions.assertEquals(2, params.size());
+    CursorPageParameter forward = params.get(0);
+    Assertions.assertEquals(Direction.NEXT, forward.getDirection());
+    Assertions.assertEquals(3, forward.getLimit());
+    Assertions.assertNull(forward.getCursor());
+    CursorPageParameter backward = params.get(1);
+    Assertions.assertEquals(Direction.PREV, backward.getDirection());
+    Assertions.assertEquals(4, backward.getLimit());
+    Assertions.assertNull(backward.getCursor());
+  }
+
   @Test
   public void should_reject_feed_without_first_or_last() {
     Assertions.assertThrows(
@@ -200,6 +212,58 @@ public class ArticleDatafetcherTest extends GraphQLTestBase {
         .findRecentArticlesWithCursor(
             isNull(), eq("johnjacob"), isNull(), captor.capture(), eq(user));
     assertForwardThenBackward(captor.getAllValues());
+  }
+
+  @Test
+  public void should_get_feed_of_profile_user_without_cursor() {
+    User target = new User("target@test.com", "target", "123", "", "");
+    when(dfe.getSource()).thenReturn(Profile.newBuilder().username("target").build());
+    when(userRepository.findByUsername(eq("target"))).thenReturn(Optional.of(target));
+    when(articleQueryService.findUserFeedWithCursor(eq(target), any()))
+        .thenReturn(pager(Direction.NEXT, false));
+
+    assertSingleArticle(articleDatafetcher.userFeed(3, null, null, null, dfe));
+    assertSingleArticle(articleDatafetcher.userFeed(null, null, 4, null, dfe));
+
+    ArgumentCaptor<CursorPageParameter> captor = ArgumentCaptor.forClass(CursorPageParameter.class);
+    verify(articleQueryService, times(2)).findUserFeedWithCursor(eq(target), captor.capture());
+    assertForwardThenBackwardWithoutCursor(captor.getAllValues());
+  }
+
+  @Test
+  public void should_get_favorites_of_profile_user_without_cursor() {
+    anonymous();
+    when(dfe.getSource()).thenReturn(Profile.newBuilder().username("johnjacob").build());
+    when(articleQueryService.findRecentArticlesWithCursor(
+            isNull(), isNull(), eq("johnjacob"), any(), isNull()))
+        .thenReturn(pager(Direction.NEXT, false));
+
+    assertSingleArticle(articleDatafetcher.userFavorites(3, null, null, null, dfe));
+    assertSingleArticle(articleDatafetcher.userFavorites(null, null, 4, null, dfe));
+
+    ArgumentCaptor<CursorPageParameter> captor = ArgumentCaptor.forClass(CursorPageParameter.class);
+    verify(articleQueryService, times(2))
+        .findRecentArticlesWithCursor(
+            isNull(), isNull(), eq("johnjacob"), captor.capture(), isNull());
+    assertForwardThenBackwardWithoutCursor(captor.getAllValues());
+  }
+
+  @Test
+  public void should_get_articles_of_profile_user_without_cursor() {
+    login(user);
+    when(dfe.getSource()).thenReturn(Profile.newBuilder().username("johnjacob").build());
+    when(articleQueryService.findRecentArticlesWithCursor(
+            isNull(), eq("johnjacob"), isNull(), any(), eq(user)))
+        .thenReturn(pager(Direction.NEXT, false));
+
+    assertSingleArticle(articleDatafetcher.userArticles(3, null, null, null, dfe));
+    assertSingleArticle(articleDatafetcher.userArticles(null, null, 4, null, dfe));
+
+    ArgumentCaptor<CursorPageParameter> captor = ArgumentCaptor.forClass(CursorPageParameter.class);
+    verify(articleQueryService, times(2))
+        .findRecentArticlesWithCursor(
+            isNull(), eq("johnjacob"), isNull(), captor.capture(), eq(user));
+    assertForwardThenBackwardWithoutCursor(captor.getAllValues());
   }
 
   @Test
