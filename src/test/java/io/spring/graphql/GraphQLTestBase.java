@@ -1,6 +1,7 @@
 package io.spring.graphql;
 
 import io.spring.core.user.User;
+import java.util.Collections;
 import org.junit.jupiter.api.AfterEach;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -11,7 +12,8 @@ abstract class GraphQLTestBase {
 
   protected void login(User user) {
     SecurityContextHolder.getContext()
-        .setAuthentication(new UsernamePasswordAuthenticationToken(user, null));
+        .setAuthentication(
+            new UsernamePasswordAuthenticationToken(user, null, Collections.emptyList()));
   }
 
   protected void anonymous() {
