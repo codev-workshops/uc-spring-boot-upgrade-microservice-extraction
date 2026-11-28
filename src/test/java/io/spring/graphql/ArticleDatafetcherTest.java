@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -25,6 +26,7 @@ import io.spring.graphql.types.ArticlesConnection;
 import io.spring.graphql.types.Profile;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.joda.time.DateTime;
@@ -66,6 +68,18 @@ public class ArticleDatafetcherTest extends GraphQLTestBase {
     Assertions.assertEquals(articleData.getTagList(), node.getTagList());
     Assertions.assertEquals(
         articleData, ((Map<?, ?>) result.getLocalContext()).get(articleData.getSlug()));
+  }
+
+  private void assertForwardThenBackward(List<CursorPageParameter> params) {
+    Assertions.assertEquals(2, params.size());
+    CursorPageParameter forward = params.get(0);
+    Assertions.assertEquals(Direction.NEXT, forward.getDirection());
+    Assertions.assertEquals(3, forward.getLimit());
+    Assertions.assertEquals(1000L, ((DateTime) forward.getCursor()).getMillis());
+    CursorPageParameter backward = params.get(1);
+    Assertions.assertEquals(Direction.PREV, backward.getDirection());
+    Assertions.assertEquals(4, backward.getLimit());
+    Assertions.assertEquals(2000L, ((DateTime) backward.getCursor()).getMillis());
   }
 
   @Test
@@ -120,8 +134,12 @@ public class ArticleDatafetcherTest extends GraphQLTestBase {
     when(articleQueryService.findUserFeedWithCursor(eq(target), any()))
         .thenReturn(pager(Direction.NEXT, false));
 
-    assertSingleArticle(articleDatafetcher.userFeed(1, null, null, null, dfe));
-    assertSingleArticle(articleDatafetcher.userFeed(null, null, 1, null, dfe));
+    assertSingleArticle(articleDatafetcher.userFeed(3, "1000", null, null, dfe));
+    assertSingleArticle(articleDatafetcher.userFeed(null, null, 4, "2000", dfe));
+
+    ArgumentCaptor<CursorPageParameter> captor = ArgumentCaptor.forClass(CursorPageParameter.class);
+    verify(articleQueryService, times(2)).findUserFeedWithCursor(eq(target), captor.capture());
+    assertForwardThenBackward(captor.getAllValues());
   }
 
   @Test
@@ -149,8 +167,14 @@ public class ArticleDatafetcherTest extends GraphQLTestBase {
             isNull(), isNull(), eq("johnjacob"), any(), isNull()))
         .thenReturn(pager(Direction.NEXT, false));
 
-    assertSingleArticle(articleDatafetcher.userFavorites(1, null, null, null, dfe));
-    assertSingleArticle(articleDatafetcher.userFavorites(null, null, 1, null, dfe));
+    assertSingleArticle(articleDatafetcher.userFavorites(3, "1000", null, null, dfe));
+    assertSingleArticle(articleDatafetcher.userFavorites(null, null, 4, "2000", dfe));
+
+    ArgumentCaptor<CursorPageParameter> captor = ArgumentCaptor.forClass(CursorPageParameter.class);
+    verify(articleQueryService, times(2))
+        .findRecentArticlesWithCursor(
+            isNull(), isNull(), eq("johnjacob"), captor.capture(), isNull());
+    assertForwardThenBackward(captor.getAllValues());
   }
 
   @Test
@@ -168,8 +192,14 @@ public class ArticleDatafetcherTest extends GraphQLTestBase {
             isNull(), eq("johnjacob"), isNull(), any(), eq(user)))
         .thenReturn(pager(Direction.NEXT, false));
 
-    assertSingleArticle(articleDatafetcher.userArticles(1, null, null, null, dfe));
-    assertSingleArticle(articleDatafetcher.userArticles(null, null, 1, null, dfe));
+    assertSingleArticle(articleDatafetcher.userArticles(3, "1000", null, null, dfe));
+    assertSingleArticle(articleDatafetcher.userArticles(null, null, 4, "2000", dfe));
+
+    ArgumentCaptor<CursorPageParameter> captor = ArgumentCaptor.forClass(CursorPageParameter.class);
+    verify(articleQueryService, times(2))
+        .findRecentArticlesWithCursor(
+            isNull(), eq("johnjacob"), isNull(), captor.capture(), eq(user));
+    assertForwardThenBackward(captor.getAllValues());
   }
 
   @Test
@@ -187,9 +217,15 @@ public class ArticleDatafetcherTest extends GraphQLTestBase {
         .thenReturn(pager(Direction.NEXT, false));
 
     assertSingleArticle(
-        articleDatafetcher.getArticles(1, null, null, null, "author", "fan", "java", dfe));
+        articleDatafetcher.getArticles(3, "1000", null, null, "author", "fan", "java", dfe));
     assertSingleArticle(
-        articleDatafetcher.getArticles(null, null, 1, null, "author", "fan", "java", dfe));
+        articleDatafetcher.getArticles(null, null, 4, "2000", "author", "fan", "java", dfe));
+
+    ArgumentCaptor<CursorPageParameter> captor = ArgumentCaptor.forClass(CursorPageParameter.class);
+    verify(articleQueryService, times(2))
+        .findRecentArticlesWithCursor(
+            eq("java"), eq("author"), eq("fan"), captor.capture(), isNull());
+    assertForwardThenBackward(captor.getAllValues());
   }
 
   @Test
