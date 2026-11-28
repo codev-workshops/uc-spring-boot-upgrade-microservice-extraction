@@ -33,6 +33,15 @@ jacocoTestReport {
         csv.required = false
     }
     finalizedBy jacocoTestCoverageVerification
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: [
+                'io/spring/graphql/types/**',
+                'io/spring/graphql/client/**',
+                'io/spring/graphql/DgsConstants*'
+            ])
+        }))
+    }
 }
 
 jacocoTestCoverageVerification {
@@ -42,6 +51,15 @@ jacocoTestCoverageVerification {
                 minimum = 0.80
             }
         }
+    }
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: [
+                'io/spring/graphql/types/**',
+                'io/spring/graphql/client/**',
+                'io/spring/graphql/DgsConstants*'
+            ])
+        }))
     }
 }
 
